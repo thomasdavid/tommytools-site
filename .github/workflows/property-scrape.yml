@@ -1,4 +1,4 @@
-name: Dublin property scrape
+name: Regional property scrape
 
 on:
   schedule:
@@ -13,13 +13,18 @@ on:
         options:
           - incremental
           - full
+      counties:
+        description: Comma-separated county slugs
+        required: true
+        default: dublin,carlow,kildare,wicklow
+        type: string
       max_pages:
-        description: Optional page limit
+        description: Optional page limit per county
         required: false
         type: string
 
 concurrency:
-  group: dublin-property-scrape
+  group: regional-property-scrape
   cancel-in-progress: false
 
 jobs:
@@ -30,6 +35,7 @@ jobs:
       PYTHONPATH: backend
       DATABASE_URL: ${{ secrets.PROPERTY_DATABASE_URL }}
       SCRAPE_START_YEAR: "2025"
+      SCRAPE_COUNTIES: dublin,carlow,kildare,wicklow
       INCREMENTAL_MAX_PAGES: "20"
       FULL_MAX_PAGES: "500"
       SCRAPE_DELAY_SECONDS: "0.6"
@@ -50,8 +56,9 @@ jobs:
         shell: bash
         run: |
           MODE="${{ github.event.inputs.mode || 'incremental' }}"
+          COUNTIES="${{ github.event.inputs.counties || 'dublin,carlow,kildare,wicklow' }}"
           MAX_PAGES="${{ github.event.inputs.max_pages }}"
-          COMMAND=(python -m property_tracker.scraper --mode "$MODE")
+          COMMAND=(python -m property_tracker.scraper --mode "$MODE" --counties "$COUNTIES")
           if [ -n "$MAX_PAGES" ]; then
             COMMAND+=(--max-pages "$MAX_PAGES")
           fi

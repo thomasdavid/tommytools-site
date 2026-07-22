@@ -5,70 +5,91 @@ import re
 from datetime import date, datetime
 
 
-AREA_ALIASES: tuple[tuple[str, str], ...] = (
-    ("dún laoghaire", "Dún Laoghaire"),
-    ("dun laoghaire", "Dún Laoghaire"),
-    ("blackrock", "Blackrock"),
-    ("ballsbridge", "Ballsbridge"),
-    ("ranelagh", "Ranelagh"),
-    ("killiney", "Killiney"),
-    ("dalkey", "Dalkey"),
-    ("monkstown", "Monkstown"),
-    ("sandycove", "Sandycove"),
-    ("glasthule", "Glasthule"),
-    ("sandymount", "Sandymount"),
-    ("donnybrook", "Donnybrook"),
-    ("foxrock", "Foxrock"),
-    ("cabinteely", "Cabinteely"),
-    ("shankill", "Shankill"),
-    ("glenageary", "Glenageary"),
-    ("deansgrange", "Deansgrange"),
-    ("stillorgan", "Stillorgan"),
-    ("mount merrion", "Mount Merrion"),
-    ("goatstown", "Goatstown"),
-    ("clonskeagh", "Clonskeagh"),
-    ("milltown", "Milltown"),
-    ("churchtown", "Churchtown"),
-    ("dundrum", "Dundrum"),
-    ("ballinteer", "Ballinteer"),
-    ("rathfarnham", "Rathfarnham"),
-    ("terenure", "Terenure"),
-    ("rathgar", "Rathgar"),
-    ("harold's cross", "Harold's Cross"),
-    ("harolds cross", "Harold's Cross"),
-    ("portobello", "Portobello"),
-    ("ringsend", "Ringsend"),
-    ("grand canal dock", "Grand Canal Dock"),
-    ("citywest", "Citywest"),
-    ("tallaght", "Tallaght"),
-    ("clondalkin", "Clondalkin"),
-    ("lucan", "Lucan"),
-    ("palmerstown", "Palmerstown"),
-    ("chapelizod", "Chapelizod"),
-    ("castleknock", "Castleknock"),
-    ("blanchardstown", "Blanchardstown"),
-    ("clonsilla", "Clonsilla"),
-    ("ongar", "Ongar"),
-    ("finglas", "Finglas"),
-    ("glasnevin", "Glasnevin"),
-    ("phibsborough", "Phibsborough"),
-    ("drumcondra", "Drumcondra"),
-    ("clontarf", "Clontarf"),
-    ("raheny", "Raheny"),
-    ("killester", "Killester"),
-    ("artane", "Artane"),
-    ("coolock", "Coolock"),
-    ("donaghmede", "Donaghmede"),
-    ("howth", "Howth"),
-    ("sutton", "Sutton"),
-    ("portmarnock", "Portmarnock"),
-    ("malahide", "Malahide"),
-    ("swords", "Swords"),
-    ("skerries", "Skerries"),
-    ("rush", "Rush"),
-    ("lusk", "Lusk"),
-    ("balbriggan", "Balbriggan"),
+COUNTY_SLUGS = {
+    "dublin": "Dublin",
+    "carlow": "Carlow",
+    "kildare": "Kildare",
+    "wicklow": "Wicklow",
+}
+
+IRISH_COUNTIES = (
+    "Antrim", "Armagh", "Carlow", "Cavan", "Clare", "Cork", "Derry", "Donegal",
+    "Down", "Dublin", "Fermanagh", "Galway", "Kerry", "Kildare", "Kilkenny",
+    "Laois", "Leitrim", "Limerick", "Longford", "Louth", "Mayo", "Meath",
+    "Monaghan", "Offaly", "Roscommon", "Sligo", "Tipperary", "Tyrone",
+    "Waterford", "Westmeath", "Wexford", "Wicklow",
 )
+
+AREA_ALIASES_BY_COUNTY: dict[str, tuple[tuple[str, str], ...]] = {
+    "Dublin": (
+        ("dún laoghaire", "Dún Laoghaire"), ("dun laoghaire", "Dún Laoghaire"),
+        ("blackrock", "Blackrock"), ("ballsbridge", "Ballsbridge"),
+        ("ranelagh", "Ranelagh"), ("killiney", "Killiney"), ("dalkey", "Dalkey"),
+        ("monkstown", "Monkstown"), ("sandycove", "Sandycove"),
+        ("glasthule", "Glasthule"), ("sandymount", "Sandymount"),
+        ("donnybrook", "Donnybrook"), ("foxrock", "Foxrock"),
+        ("cabinteely", "Cabinteely"), ("shankill", "Shankill"),
+        ("glenageary", "Glenageary"), ("deansgrange", "Deansgrange"),
+        ("stillorgan", "Stillorgan"), ("mount merrion", "Mount Merrion"),
+        ("goatstown", "Goatstown"), ("clonskeagh", "Clonskeagh"),
+        ("milltown", "Milltown"), ("churchtown", "Churchtown"),
+        ("dundrum", "Dundrum"), ("ballinteer", "Ballinteer"),
+        ("rathfarnham", "Rathfarnham"), ("terenure", "Terenure"),
+        ("rathgar", "Rathgar"), ("harold's cross", "Harold's Cross"),
+        ("harolds cross", "Harold's Cross"), ("portobello", "Portobello"),
+        ("ringsend", "Ringsend"), ("grand canal dock", "Grand Canal Dock"),
+        ("citywest", "Citywest"), ("tallaght", "Tallaght"),
+        ("clondalkin", "Clondalkin"), ("lucan", "Lucan"),
+        ("palmerstown", "Palmerstown"), ("chapelizod", "Chapelizod"),
+        ("castleknock", "Castleknock"), ("blanchardstown", "Blanchardstown"),
+        ("clonsilla", "Clonsilla"), ("ongar", "Ongar"), ("finglas", "Finglas"),
+        ("glasnevin", "Glasnevin"), ("phibsborough", "Phibsborough"),
+        ("drumcondra", "Drumcondra"), ("clontarf", "Clontarf"),
+        ("raheny", "Raheny"), ("killester", "Killester"), ("artane", "Artane"),
+        ("coolock", "Coolock"), ("donaghmede", "Donaghmede"),
+        ("howth", "Howth"), ("sutton", "Sutton"),
+        ("portmarnock", "Portmarnock"), ("malahide", "Malahide"),
+        ("swords", "Swords"), ("skerries", "Skerries"), ("rush", "Rush"),
+        ("lusk", "Lusk"), ("balbriggan", "Balbriggan"),
+    ),
+    "Carlow": (
+        ("carlow town", "Carlow Town"), ("graiguecullen", "Graiguecullen"),
+        ("tullow", "Tullow"), ("bagenalstown", "Bagenalstown"),
+        ("muine bheag", "Bagenalstown"), ("borris", "Borris"),
+        ("hacketstown", "Hacketstown"), ("leighlinbridge", "Leighlinbridge"),
+        ("ballon", "Ballon"), ("rathvilly", "Rathvilly"),
+        ("clonegal", "Clonegal"), ("myshall", "Myshall"),
+        ("fenagh", "Fenagh"), ("old leighlin", "Old Leighlin"),
+        ("tinryland", "Tinryland"), ("bennekerry", "Bennekerry"),
+    ),
+    "Kildare": (
+        ("kildare town", "Kildare Town"), ("newbridge", "Newbridge"),
+        ("naas", "Naas"), ("maynooth", "Maynooth"), ("celbridge", "Celbridge"),
+        ("leixlip", "Leixlip"), ("athy", "Athy"), ("kilcock", "Kilcock"),
+        ("clane", "Clane"), ("sallins", "Sallins"),
+        ("monasterevin", "Monasterevin"), ("rathangan", "Rathangan"),
+        ("prosperous", "Prosperous"), ("straffan", "Straffan"),
+        ("kilcullen", "Kilcullen"), ("castledermot", "Castledermot"),
+        ("allenwood", "Allenwood"), ("robertstown", "Robertstown"),
+        ("johnstown", "Johnstown"), ("kill", "Kill"),
+        ("curragh", "The Curragh"), ("narraghmore", "Narraghmore"),
+        ("rathmore", "Rathmore"), ("ardclough", "Ardclough"),
+        ("caragh", "Caragh"), ("moone", "Moone"),
+    ),
+    "Wicklow": (
+        ("wicklow town", "Wicklow Town"), ("newtownmountkennedy", "Newtownmountkennedy"),
+        ("bray", "Bray"), ("greystones", "Greystones"), ("arklow", "Arklow"),
+        ("blessington", "Blessington"), ("enniskerry", "Enniskerry"),
+        ("delgany", "Delgany"), ("kilcoole", "Kilcoole"),
+        ("rathnew", "Rathnew"), ("ashford", "Ashford"), ("avoca", "Avoca"),
+        ("aughrim", "Aughrim"), ("baltinglass", "Baltinglass"),
+        ("tinahely", "Tinahely"), ("rathdrum", "Rathdrum"),
+        ("roundwood", "Roundwood"), ("laragh", "Laragh"),
+        ("hollywood", "Hollywood"), ("shillelagh", "Shillelagh"),
+        ("dunlavin", "Dunlavin"), ("newcastle", "Newcastle"),
+        ("kilmacanogue", "Kilmacanogue"), ("glendalough", "Glendalough"),
+    ),
+}
 
 PROPERTY_TYPE_PATTERNS: tuple[tuple[str, str], ...] = (
     (r"\bsemi[- ]detached\b|\bsemi-d\b", "Semi-detached"),
@@ -131,37 +152,86 @@ def asking_band(value: float | None) -> str:
 
 
 def area_search_text(value: str | None) -> str:
-    """Normalise normal addresses and Daft URL-style slugs for locality matching."""
     normal = clean_text(value).casefold().replace("–", "-")
     normal = re.sub(r"[-_/]+", " ", normal)
     return re.sub(r"\s+", " ", normal).strip()
 
 
-def infer_area(address: str | None) -> str:
-    """Return a locality or Dublin postal district, never an arbitrary address."""
+def normalize_county(value: str | None) -> str | None:
+    token = clean_text(value).casefold()
+    for slug, label in COUNTY_SLUGS.items():
+        if token in {slug, label.casefold(), f"co {slug}", f"county {slug}"}:
+            return label
+    return None
+
+
+def infer_county(
+    address: str | None,
+    source_page: str | None = None,
+    explicit: str | None = None,
+) -> str:
+    explicit_county = normalize_county(explicit)
+    if explicit_county:
+        return explicit_county
+
+    normal_address = area_search_text(address)
+    for county in IRISH_COUNTIES:
+        needle = county.casefold()
+        if re.search(rf"(?<!\w)(?:co\s+|county\s+)?{re.escape(needle)}(?!\w)", normal_address):
+            return county if county in COUNTY_SLUGS.values() else "Other"
+
+    source_match = re.search(r"/sold-properties/(dublin|carlow|kildare|wicklow)(?:[/?#]|$)", source_page or "", re.I)
+    if source_match:
+        return COUNTY_SLUGS[source_match.group(1).casefold()]
+    return "Dublin"
+
+
+def infer_area(address: str | None, county: str | None = None) -> str:
     normal = area_search_text(address)
     if not normal:
         return "Other"
 
-    for needle, label in AREA_ALIASES:
+    resolved_county = normalize_county(county) or infer_county(address)
+    aliases = AREA_ALIASES_BY_COUNTY.get(resolved_county, ())
+    for needle, label in aliases:
         normal_needle = area_search_text(needle)
         if re.search(rf"(?<!\w){re.escape(normal_needle)}(?!\w)", normal):
             return label
 
-    # Daft slugs commonly end in forms such as "dublin-8-dublin".
-    district_matches = re.findall(r"\bdublin\s+(\d{1,2}[a-z]?)\b", normal, re.I)
-    if district_matches:
-        district = district_matches[-1].upper()
-        return f"Dublin {district}"
+    if resolved_county == "Dublin":
+        district_matches = re.findall(r"\bdublin\s+(\d{1,2}[a-z]?)\b", normal, re.I)
+        if district_matches:
+            return f"Dublin {district_matches[-1].upper()}"
+        routing_key = re.search(r"\bd0?(\d{1,2})([a-z]?)\b", normal, re.I)
+        if routing_key:
+            number = int(routing_key.group(1))
+            suffix = routing_key.group(2).upper()
+            if 1 <= number <= 24:
+                return f"Dublin {number}{suffix}"
+        return "Other"
 
-    # Eircode routing keys can also identify a broad Dublin postal district.
-    routing_key = re.search(r"\bd0?(\d{1,2})([a-z]?)\b", normal, re.I)
-    if routing_key:
-        number = int(routing_key.group(1))
-        suffix = routing_key.group(2).upper()
-        if 1 <= number <= 24:
-            return f"Dublin {number}{suffix}"
+    display = clean_text(address)
+    if "," not in display:
+        return "Other"
 
+    ignored = {name.casefold() for name in IRISH_COUNTIES}
+    ignored.update({f"co {name.casefold()}" for name in IRISH_COUNTIES})
+    ignored.update({f"co. {name.casefold()}" for name in IRISH_COUNTIES})
+    streetish = re.compile(
+        r"^(?:apt|apartment|unit|no\.?|house|flat)?\s*\d+\b|\b(?:road|rd|street|st|avenue|ave|court|ct|drive|dr|terrace|place|lane|close|crescent|park|gardens|grove|view|rise|way|square|quay)\b",
+        re.I,
+    )
+    for part in reversed([clean_text(part) for part in display.split(",") if clean_text(part)]):
+        folded = part.casefold().rstrip(".")
+        if folded in ignored or folded in {"ireland", "other"}:
+            continue
+        if re.fullmatch(r"dublin\s+\d{1,2}[a-z]?", part, re.I):
+            continue
+        if re.fullmatch(r"[a-z]\d{2}\s*[a-z0-9]{4}", part, re.I):
+            continue
+        if streetish.search(part):
+            continue
+        return part[:120]
     return "Other"
 
 
@@ -178,13 +248,8 @@ def broad_property_type(value: str | None) -> str:
     if normal in {"apartment", "duplex", "penthouse", "studio"}:
         return "Apartment"
     if normal in {
-        "semi-detached",
-        "detached",
-        "end of terrace",
-        "terraced",
-        "bungalow",
-        "townhouse",
-        "cottage",
+        "semi-detached", "detached", "end of terrace", "terraced", "bungalow",
+        "townhouse", "cottage",
     }:
         return "House"
     return "Other"

@@ -1,13 +1,16 @@
 from __future__ import annotations
 
+import csv
+import io
 from collections import defaultdict
 from datetime import date
 from statistics import mean, median
 from typing import Literal
 
-from fastapi import Depends, FastAPI, HTTPException, Query
+from fastapi import Depends, FastAPI, Query
 from fastapi.middleware.cors import CORSMiddleware
-from sqlalchemy import desc, func, select
+from fastapi.responses import StreamingResponse
+from sqlalchemy import desc, func, or_, select
 from sqlalchemy.orm import Session
 
 from .config import PRICE_BANDS, get_settings
@@ -16,8 +19,8 @@ from .models import PropertySale, ScrapeRun
 
 settings = get_settings()
 app = FastAPI(
-    title="Tommy Tools Dublin Property API",
-    version="1.0.0",
+    title="Tommy Tools Regional Property API",
+    version="1.1.0",
     docs_url="/api/docs",
     redoc_url=None,
 )
@@ -36,13 +39,17 @@ def startup() -> None:
 
 
 def filtered_sales_statement(
+    counties: list[str],
     areas: list[str],
     bands: list[str],
     property_types: list[str],
     date_from: date | None,
     date_to: date | None,
+    search: str | None = None,
 ):
     statement = select(PropertySale)
+    if counties:
+        statement = statement.where(PropertySale.county.in_(counties))
     if areas:
         statement = statement.where(PropertySale.area.in_(areas))
     if bands:
@@ -53,6 +60,16 @@ def filtered_sales_statement(
         statement = statement.where(PropertySale.sale_date >= date_from)
     if date_to:
         statement = statement.where(PropertySale.sale_date <= date_to)
+    if search and search.strip():
+        token = f"%{search.strip()}%"
+        statement = statement.where(
+            or_(
+                PropertySale.address.ilike(token),
+                PropertySale.area.ilike(token),
+                PropertySale.county.ilike(token),
+                PropertySale.property_type.ilike(token),
+            )
+        )
     return statement
 
 
@@ -65,12 +82,38 @@ def finite_values(rows: list[PropertySale], field: str) -> list[float]:
     return values
 
 
+def serialise_sale(row: PropertySale) -> dict[str, object]:
+    return {
+        "sale_date": row.sale_date.isoformat() if row.sale_date else None,
+        "sold_price_eur": row.sold_price_eur,
+        "asking_price_eur": row.asking_price_eur,
+        "delta_eur": row.delta_eur,
+        "delta_pct": row.delta_pct,
+        "asking_band": row.asking_band,
+        "property_type": row.property_type,
+        "broad_property_type": row.broad_property_type,
+        "bedrooms": row.bedrooms,
+        "bathrooms": row.bathrooms,
+        "size_sqm": row.size_sqm,
+        "address": row.address,
+        "county": row.county,
+        "area": row.area,
+        "detail_url": row.detail_url,
+        "source_page": row.source_page,
+        "first_seen_at": row.first_seen_at.isoformat() if row.first_seen_at else None,
+        "last_seen_at": row.last_seen_at.isoformat() if row.last_seen_at else None,
+        "scraped_at": row.scraped_at.isoformat() if row.scraped_at else None,
+    }
+
+
 @app.get("/")
 def root() -> dict[str, str]:
     return {
-        "name": "Tommy Tools Dublin Property API",
+        "name": "Tommy Tools Regional Property API",
         "health": "/api/health",
         "docs": "/api/docs",
+        "source_data": "/api/properties",
+        "csv_export": "/api/export.csv",
     }
 
 
@@ -82,7 +125,16 @@ def health(session: Session = Depends(get_session)) -> dict[str, object]:
 
 @app.get("/api/meta")
 def meta(session: Session = Depends(get_session)) -> dict[str, object]:
-    areas = list(session.scalars(select(PropertySale.area).distinct().order_by(PropertySale.area)))
+    counties = list(
+        session.scalars(select(PropertySale.county).distinct().order_by(PropertySale.county))
+    )
+    area_rows = list(
+        session.execute(
+            select(PropertySale.county, PropertySale.area)
+            .distinct()
+            .order_by(PropertySale.county, PropertySale.area)
+        )
+    )
     types = list(
         session.scalars(
             select(PropertySale.broad_property_type)
@@ -94,9 +146,18 @@ def meta(session: Session = Depends(get_session)) -> dict[str, object]:
     latest_sale = session.scalar(select(func.max(PropertySale.sale_date)))
     latest_scrape = session.scalar(select(func.max(PropertySale.scraped_at)))
 
+    areas_by_county: dict[str, list[str]] = defaultdict(list)
+    for county, area in area_rows:
+        if county and area:
+            areas_by_county[county].append(area)
+    all_areas = sorted({area for values in areas_by_county.values() for area in values})
+
     return {
-        "areas": [value for value in areas if value],
-        "default_areas": [area for area in settings.default_areas if area in areas],
+        "counties": [value for value in counties if value],
+        "default_counties": [county for county in settings.default_counties if county in counties],
+        "areas": all_areas,
+        "areas_by_county": dict(areas_by_county),
+        "default_areas": [area for area in settings.default_areas if area in all_areas],
         "price_bands": list(PRICE_BANDS),
         "property_types": [value for value in types if value],
         "latest_sale_date": latest_sale.isoformat() if latest_sale else None,
@@ -120,6 +181,7 @@ def meta(session: Session = Depends(get_session)) -> dict[str, object]:
 
 @app.get("/api/summary")
 def summary(
+    counties: list[str] = Query(default=[]),
     areas: list[str] = Query(default=[]),
     bands: list[str] = Query(default=[]),
     property_types: list[str] = Query(default=[]),
@@ -129,7 +191,7 @@ def summary(
 ) -> dict[str, object]:
     rows = list(
         session.scalars(
-            filtered_sales_statement(areas, bands, property_types, date_from, date_to)
+            filtered_sales_statement(counties, areas, bands, property_types, date_from, date_to)
         )
     )
     sold = finite_values(rows, "sold_price_eur")
@@ -152,8 +214,9 @@ def summary(
 def trends(
     metric: Literal["delta_eur", "delta_pct", "sold_price_eur", "asking_price_eur"] = "delta_pct",
     statistic: Literal["mean", "median"] = "mean",
-    group_by: Literal["asking_band", "area", "property_type", "all"] = "asking_band",
+    group_by: Literal["asking_band", "county", "area", "property_type", "all"] = "asking_band",
     min_count: int = Query(default=1, ge=1, le=1000),
+    counties: list[str] = Query(default=[]),
     areas: list[str] = Query(default=[]),
     bands: list[str] = Query(default=[]),
     property_types: list[str] = Query(default=[]),
@@ -163,7 +226,7 @@ def trends(
 ) -> dict[str, object]:
     rows = list(
         session.scalars(
-            filtered_sales_statement(areas, bands, property_types, date_from, date_to)
+            filtered_sales_statement(counties, areas, bands, property_types, date_from, date_to)
             .where(PropertySale.sale_date.is_not(None))
             .order_by(PropertySale.sale_date)
         )
@@ -177,6 +240,8 @@ def trends(
         month = row.sale_date.replace(day=1).isoformat()[:7]
         if group_by == "asking_band":
             group = row.asking_band
+        elif group_by == "county":
+            group = row.county
         elif group_by == "area":
             group = row.area
         elif group_by == "property_type":
@@ -190,9 +255,7 @@ def trends(
         if len(values) < min_count:
             continue
         aggregate = mean(values) if statistic == "mean" else median(values)
-        grouped[group].append(
-            {"month": month, "value": aggregate, "count": len(values)}
-        )
+        grouped[group].append({"month": month, "value": aggregate, "count": len(values)})
 
     series = [
         {"name": group, "points": sorted(points, key=lambda point: point["month"])}
@@ -208,16 +271,21 @@ def trends(
 
 @app.get("/api/properties")
 def properties(
-    limit: int = Query(default=100, ge=1, le=500),
+    limit: int = Query(default=100, ge=1, le=1000),
     offset: int = Query(default=0, ge=0),
+    counties: list[str] = Query(default=[]),
     areas: list[str] = Query(default=[]),
     bands: list[str] = Query(default=[]),
     property_types: list[str] = Query(default=[]),
+    search: str | None = None,
     date_from: date | None = None,
     date_to: date | None = None,
     session: Session = Depends(get_session),
 ) -> dict[str, object]:
-    base = filtered_sales_statement(areas, bands, property_types, date_from, date_to)
+    base = filtered_sales_statement(
+        counties, areas, bands, property_types, date_from, date_to, search
+    )
+    total = session.scalar(select(func.count()).select_from(base.subquery())) or 0
     rows = list(
         session.scalars(
             base.order_by(desc(PropertySale.sale_date), PropertySale.address)
@@ -228,23 +296,53 @@ def properties(
     return {
         "offset": offset,
         "limit": limit,
-        "items": [
-            {
-                "sale_date": row.sale_date.isoformat() if row.sale_date else None,
-                "sold_price_eur": row.sold_price_eur,
-                "asking_price_eur": row.asking_price_eur,
-                "delta_eur": row.delta_eur,
-                "delta_pct": row.delta_pct,
-                "asking_band": row.asking_band,
-                "property_type": row.property_type,
-                "broad_property_type": row.broad_property_type,
-                "bedrooms": row.bedrooms,
-                "bathrooms": row.bathrooms,
-                "size_sqm": row.size_sqm,
-                "address": row.address,
-                "area": row.area,
-                "detail_url": row.detail_url,
-            }
-            for row in rows
-        ],
+        "total": total,
+        "items": [serialise_sale(row) for row in rows],
     }
+
+
+@app.get("/api/export.csv")
+def export_csv(
+    limit: int = Query(default=50_000, ge=1, le=100_000),
+    counties: list[str] = Query(default=[]),
+    areas: list[str] = Query(default=[]),
+    bands: list[str] = Query(default=[]),
+    property_types: list[str] = Query(default=[]),
+    search: str | None = None,
+    date_from: date | None = None,
+    date_to: date | None = None,
+    session: Session = Depends(get_session),
+) -> StreamingResponse:
+    rows = list(
+        session.scalars(
+            filtered_sales_statement(
+                counties, areas, bands, property_types, date_from, date_to, search
+            )
+            .order_by(desc(PropertySale.sale_date), PropertySale.county, PropertySale.area)
+            .limit(limit)
+        )
+    )
+
+    output = io.StringIO(newline="")
+    writer = csv.writer(output)
+    writer.writerow(
+        [
+            "sale_date", "county", "area", "address", "property_type",
+            "broad_property_type", "bedrooms", "bathrooms", "size_sqm",
+            "asking_price_eur", "sold_price_eur", "delta_eur", "delta_pct",
+            "asking_band", "detail_url", "source_page", "first_seen_at",
+            "last_seen_at", "scraped_at",
+        ]
+    )
+    for row in rows:
+        item = serialise_sale(row)
+        writer.writerow([item[key] for key in (
+            "sale_date", "county", "area", "address", "property_type",
+            "broad_property_type", "bedrooms", "bathrooms", "size_sqm",
+            "asking_price_eur", "sold_price_eur", "delta_eur", "delta_pct",
+            "asking_band", "detail_url", "source_page", "first_seen_at",
+            "last_seen_at", "scraped_at",
+        )])
+
+    headers = {"Content-Disposition": 'attachment; filename="property-sales.csv"'}
+    return StreamingResponse(iter([output.getvalue()]), media_type="text/csv", headers=headers)

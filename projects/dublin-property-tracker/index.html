@@ -3,8 +3,8 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <meta name="description" content="Explore Dublin sold-property prices and sale-versus-asking trends by area, asking band and property type.">
-  <title>Dublin Property Tracker | Tommy Tools</title>
+  <meta name="description" content="Explore sold-property prices and sale-versus-asking trends across Dublin, Carlow, Kildare and Wicklow.">
+  <title>Property Sale Tracker | Tommy Tools</title>
   <link rel="icon" type="image/png" href="/611e7a94-79a0-4794-a9b9-d9aaa719858f.png">
   <link rel="stylesheet" href="./styles.css">
   <script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
@@ -21,9 +21,9 @@
   <main class="shell page">
     <section class="hero">
       <div>
-        <p class="eyebrow">Dublin housing market</p>
+        <p class="eyebrow">Dublin & surrounding counties</p>
         <h1>Property sale tracker</h1>
-        <p class="intro">Compare achieved and asking prices across Dublin. Filter the monthly trend by area, asking-price band and property type.</p>
+        <p class="intro">Compare achieved and asking prices across Dublin, Carlow, Kildare and Wicklow. Analyse entire counties or narrow the trend to selected local areas.</p>
       </div>
       <div class="live-status" id="liveStatus" role="status">
         <span class="status-dot"></span>
@@ -33,9 +33,14 @@
 
     <section class="panel filters-panel" aria-label="Dashboard filters">
       <div class="filter-grid">
+        <details class="filter-menu" id="countyMenu">
+          <summary><span><small>County</small><strong id="countySummary">Loading…</strong></span><span class="chevron">⌄</span></summary>
+          <div class="menu-popover"><div class="menu-actions"><button type="button" data-select-all="counties">All</button><button type="button" data-clear="counties">Clear</button></div><div class="option-list" id="countyOptions"></div></div>
+        </details>
+
         <details class="filter-menu" id="areaMenu">
           <summary><span><small>Area</small><strong id="areaSummary">Loading…</strong></span><span class="chevron">⌄</span></summary>
-          <div class="menu-popover"><div class="menu-actions"><button type="button" data-select-all="areas">All</button><button type="button" data-clear="areas">Clear</button></div><div class="option-list" id="areaOptions"></div></div>
+          <div class="menu-popover"><div class="menu-actions"><button type="button" data-select-all="areas">All shown</button><button type="button" data-clear="areas">Whole counties</button></div><div class="option-list" id="areaOptions"></div></div>
         </details>
 
         <details class="filter-menu" id="bandMenu">
@@ -50,11 +55,11 @@
 
         <label class="select-control"><small>Delta type</small><select id="metricSelect"><option value="delta_pct">Percentage</option><option value="delta_eur">Euro</option></select></label>
         <label class="select-control"><small>Monthly statistic</small><select id="statisticSelect"><option value="mean">Average</option><option value="median">Median</option></select></label>
-        <label class="select-control"><small>Lines represent</small><select id="groupSelect"><option value="asking_band">Price bands</option><option value="area">Areas</option><option value="property_type">Property types</option><option value="all">All selected</option></select></label>
+        <label class="select-control"><small>Lines represent</small><select id="groupSelect"><option value="asking_band">Price bands</option><option value="county">Counties</option><option value="area">Areas</option><option value="property_type">Property types</option><option value="all">All selected</option></select></label>
       </div>
       <div class="filter-footer">
         <label class="sample-control" for="minCount"><span>Minimum sales per point</span><input id="minCount" type="range" min="1" max="10" value="2"><output id="minCountValue">2</output></label>
-        <div class="button-row"><button class="button secondary" id="resetButton" type="button">Reset defaults</button><button class="button primary" id="refreshButton" type="button">Refresh data</button></div>
+        <div class="button-row"><a class="button secondary button-link" href="./source.html">Review source data</a><button class="button secondary" id="resetButton" type="button">Reset defaults</button><button class="button primary" id="refreshButton" type="button">Refresh data</button></div>
       </div>
     </section>
 
@@ -71,15 +76,15 @@
         <div class="selection-note" id="selectionNote">Preparing chart…</div>
       </div>
       <div id="trendChart" class="chart" role="img" aria-label="Monthly property price trend chart"></div>
-      <div class="chart-empty" id="chartEmpty" hidden><strong>No chart points match these filters.</strong><span>Try a wider area selection or reduce the minimum number of sales.</span></div>
+      <div class="chart-empty" id="chartEmpty" hidden><strong>No chart points match these filters.</strong><span>Try a wider selection or reduce the minimum number of sales.</span></div>
     </section>
 
     <section class="panel table-panel">
       <div class="panel-heading"><div><p class="eyebrow">Latest transactions</p><h2>Properties in the current selection</h2></div><span class="selection-note">Most recent 100</span></div>
       <div class="table-wrap">
         <table>
-          <thead><tr><th>Date</th><th>Address</th><th>Area</th><th>Type</th><th>Asking</th><th>Sold</th><th>Difference</th></tr></thead>
-          <tbody id="propertyRows"><tr><td colspan="7" class="loading-cell">Loading properties…</td></tr></tbody>
+          <thead><tr><th>Date</th><th>Address</th><th>County</th><th>Area</th><th>Type</th><th>Asking</th><th>Sold</th><th>Difference</th></tr></thead>
+          <tbody id="propertyRows"><tr><td colspan="8" class="loading-cell">Loading properties…</td></tr></tbody>
         </table>
       </div>
     </section>

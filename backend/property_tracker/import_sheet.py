@@ -10,7 +10,7 @@ from urllib.parse import quote
 from urllib.request import Request, urlopen
 
 from .database import SessionLocal, create_schema
-from .helpers import clean_text, parse_sale_date
+from .helpers import clean_text, infer_county, parse_sale_date
 from .scraper import Listing, upsert_sale
 
 LOGGER = logging.getLogger("sheet-import")
@@ -63,9 +63,12 @@ def import_rows(csv_text: str) -> tuple[int, int]:
     with SessionLocal() as session:
         for row in reader:
             detail_url = clean_text(row.get("detail_url")) or fallback_url(row)
+            source_page = clean_text(row.get("source_page")) or "Google Sheet import"
+            address = clean_text(row.get("address"))
+            county = infer_county(address, source_page, row.get("county"))
             listing = Listing(
                 detail_url=detail_url,
-                source_page=clean_text(row.get("source_page")) or "Google Sheet import",
+                source_page=source_page,
                 sale_date=parse_sale_date(row.get("sale_date")),
                 sold_price_eur=optional_float(row.get("sold_price_eur")),
                 asking_price_eur=optional_float(row.get("asking_price_eur")),
@@ -73,7 +76,8 @@ def import_rows(csv_text: str) -> tuple[int, int]:
                 bedrooms=optional_int(row.get("bedrooms")),
                 bathrooms=optional_int(row.get("bathrooms")),
                 size_sqm=optional_float(row.get("size_sqm")),
-                address=clean_text(row.get("address")),
+                address=address,
+                county=county,
             )
             if upsert_sale(session, listing):
                 inserted += 1

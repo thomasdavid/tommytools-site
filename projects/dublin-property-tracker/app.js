@@ -4,8 +4,8 @@
   const API_BASE = (window.PROPERTY_TRACKER_CONFIG?.apiBaseUrl || "").replace(/\/$/, "");
   const chart = echarts.init(document.getElementById("trendChart"), null, { renderer: "canvas" });
   const els = Object.fromEntries([
-    "liveStatus", "statusDetail", "areaSummary", "bandSummary", "typeSummary",
-    "areaOptions", "bandOptions", "typeOptions", "metricSelect", "statisticSelect",
+    "liveStatus", "statusDetail", "countySummary", "areaSummary", "bandSummary", "typeSummary",
+    "countyOptions", "areaOptions", "bandOptions", "typeOptions", "metricSelect", "statisticSelect",
     "groupSelect", "minCount", "minCountValue", "resetButton", "refreshButton",
     "kpiCount", "kpiSold", "kpiDelta", "kpiMedian", "kpiDeltaLabel",
     "chartTitle", "selectionNote", "chartEmpty", "propertyRows"
@@ -13,7 +13,8 @@
 
   const state = {
     meta: null,
-    areas: new Set(),
+    counties: new Set(),
+    areas: new Set(), // Empty means all areas within the selected counties.
     bands: new Set(),
     propertyTypes: new Set(),
     metric: "delta_pct",
@@ -50,7 +51,8 @@
 
   function filterParams() {
     const params = new URLSearchParams();
-    addRepeated(params, "areas", state.areas);
+    addRepeated(params, "counties", state.counties);
+    if (state.areas.size) addRepeated(params, "areas", state.areas);
     addRepeated(params, "bands", state.bands);
     addRepeated(params, "property_types", state.propertyTypes);
     return params;
@@ -74,8 +76,26 @@
       .replaceAll("'", "&#039;");
   }
 
-  function createOptions(container, values, selectedSet, stateKey) {
+  function visibleAreas() {
+    if (!state.meta) return [];
+    const selected = [...state.counties];
+    return [...new Set(selected.flatMap(county => state.meta.areas_by_county[county] || []))].sort((a, b) => a.localeCompare(b));
+  }
+
+  function reconcileAreas() {
+    const allowed = new Set(visibleAreas());
+    state.areas = new Set([...state.areas].filter(area => allowed.has(area)));
+  }
+
+  function createOptions(container, values, selectedSet, onChange) {
     container.replaceChildren();
+    if (!values.length) {
+      const empty = document.createElement("span");
+      empty.className = "empty-option";
+      empty.textContent = "No options available";
+      container.append(empty);
+      return;
+    }
     values.forEach(value => {
       const label = document.createElement("label");
       label.className = "option-item";
@@ -85,15 +105,13 @@
       input.checked = selectedSet.has(value);
       input.addEventListener("change", () => {
         input.checked ? selectedSet.add(value) : selectedSet.delete(value);
-        updateSummaries();
-        applyFilters();
+        onChange?.();
       });
       const span = document.createElement("span");
       span.textContent = value;
       label.append(input, span);
       container.append(label);
     });
-    container.dataset.stateKey = stateKey;
   }
 
   function conciseSelection(selected, total, allLabel) {
@@ -105,7 +123,11 @@
 
   function updateSummaries() {
     if (!state.meta) return;
-    els.areaSummary.textContent = conciseSelection(state.areas, state.meta.areas, "All Dublin areas");
+    els.countySummary.textContent = conciseSelection(state.counties, state.meta.counties, "All counties");
+    const areas = visibleAreas();
+    els.areaSummary.textContent = !state.areas.size
+      ? "All areas in selected counties"
+      : conciseSelection(state.areas, areas, "All shown areas");
     els.bandSummary.textContent = conciseSelection(state.bands, state.meta.price_bands, "All price bands");
     els.typeSummary.textContent = conciseSelection(state.propertyTypes, state.meta.property_types, "All types");
   }
@@ -118,7 +140,9 @@
 
   function resetSelections() {
     if (!state.meta) return;
-    state.areas = new Set(state.meta.default_areas.length ? state.meta.default_areas : state.meta.areas);
+    state.counties = new Set(state.meta.default_counties.length ? state.meta.default_counties : state.meta.counties);
+    const availableAreas = new Set(visibleAreas());
+    state.areas = new Set(state.meta.default_areas.filter(area => availableAreas.has(area)));
     state.bands = defaultBandSelection(state.meta.price_bands);
     state.propertyTypes = new Set(state.meta.property_types.filter(type => type !== "Other"));
     if (!state.propertyTypes.size) state.propertyTypes = new Set(state.meta.property_types);
@@ -135,9 +159,23 @@
   }
 
   function renderFilterOptions() {
-    createOptions(els.areaOptions, state.meta.areas, state.areas, "areas");
-    createOptions(els.bandOptions, state.meta.price_bands, state.bands, "bands");
-    createOptions(els.typeOptions, state.meta.property_types, state.propertyTypes, "propertyTypes");
+    createOptions(els.countyOptions, state.meta.counties, state.counties, () => {
+      reconcileAreas();
+      renderFilterOptions();
+      applyFilters();
+    });
+    createOptions(els.areaOptions, visibleAreas(), state.areas, () => {
+      updateSummaries();
+      applyFilters();
+    });
+    createOptions(els.bandOptions, state.meta.price_bands, state.bands, () => {
+      updateSummaries();
+      applyFilters();
+    });
+    createOptions(els.typeOptions, state.meta.property_types, state.propertyTypes, () => {
+      updateSummaries();
+      applyFilters();
+    });
     updateSummaries();
   }
 
@@ -257,7 +295,7 @@
 
   function renderProperties(payload) {
     if (!payload.items.length) {
-      els.propertyRows.innerHTML = '<tr><td colspan="7" class="loading-cell">No properties match the current filters.</td></tr>';
+      els.propertyRows.innerHTML = '<tr><td colspan="8" class="loading-cell">No properties match the current filters.</td></tr>';
       return;
     }
     els.propertyRows.innerHTML = payload.items.map(row => {
@@ -268,6 +306,7 @@
       return `<tr>
         <td class="numeric">${date}</td>
         <td class="address">${addressCell}</td>
+        <td>${escapeHtml(row.county || "Other")}</td>
         <td>${escapeHtml(row.area || "Other")}</td>
         <td>${escapeHtml(row.broad_property_type || row.property_type || "Unknown")}</td>
         <td class="numeric">${row.asking_price_eur == null ? "—" : money.format(row.asking_price_eur)}</td>
@@ -278,19 +317,20 @@
   }
 
   function selectionDescription() {
-    const areaText = state.areas.size === state.meta.areas.length ? "all Dublin areas" : `${state.areas.size} area${state.areas.size === 1 ? "" : "s"}`;
+    const countyText = state.counties.size === state.meta.counties.length ? "all counties" : `${state.counties.size} count${state.counties.size === 1 ? "y" : "ies"}`;
+    const areaText = state.areas.size ? `${state.areas.size} area${state.areas.size === 1 ? "" : "s"}` : "all areas in selected counties";
     const bandText = `${state.bands.size} price band${state.bands.size === 1 ? "" : "s"}`;
     const typeText = `${state.propertyTypes.size} property type${state.propertyTypes.size === 1 ? "" : "s"}`;
-    return `${areaText} · ${bandText} · ${typeText} · minimum ${state.minCount} sale${state.minCount === 1 ? "" : "s"} per point`;
+    return `${countyText} · ${areaText} · ${bandText} · ${typeText} · minimum ${state.minCount} sale${state.minCount === 1 ? "" : "s"} per point`;
   }
 
   async function applyFilters() {
     if (!state.meta) return;
-    if (!state.areas.size || !state.bands.size || !state.propertyTypes.size) {
+    if (!state.counties.size || !state.bands.size || !state.propertyTypes.size) {
       renderSummary({ count: 0 });
       renderChart({ series: [] });
       renderProperties({ items: [] });
-      els.selectionNote.textContent = "Select at least one area, band and property type.";
+      els.selectionNote.textContent = "Select at least one county, price band and property type.";
       return;
     }
 
@@ -312,7 +352,7 @@
       console.error(error);
       setStatus("error", "Data unavailable", "Check the Render API deployment and configuration");
       els.selectionNote.textContent = `API error: ${error.message}`;
-      els.propertyRows.innerHTML = '<tr><td colspan="7" class="loading-cell">The dashboard could not reach the property API.</td></tr>';
+      els.propertyRows.innerHTML = '<tr><td colspan="8" class="loading-cell">The dashboard could not reach the property API.</td></tr>';
       chart.clear();
     } finally {
       els.refreshButton.disabled = false;
@@ -331,13 +371,18 @@
 
     document.querySelectorAll("[data-select-all]").forEach(button => button.addEventListener("click", () => {
       const key = button.dataset.selectAll;
-      const source = key === "areas" ? state.meta.areas : key === "bands" ? state.meta.price_bands : state.meta.property_types;
-      state[key] = new Set(source);
+      if (key === "counties") state.counties = new Set(state.meta.counties);
+      if (key === "areas") state.areas = new Set(visibleAreas());
+      if (key === "bands") state.bands = new Set(state.meta.price_bands);
+      if (key === "propertyTypes") state.propertyTypes = new Set(state.meta.property_types);
+      reconcileAreas();
       renderFilterOptions();
       applyFilters();
     }));
     document.querySelectorAll("[data-clear]").forEach(button => button.addEventListener("click", () => {
-      state[button.dataset.clear] = new Set();
+      const key = button.dataset.clear;
+      state[key] = new Set();
+      if (key === "counties") state.areas = new Set();
       renderFilterOptions();
       applyFilters();
     }));
@@ -362,11 +407,12 @@
     } catch (error) {
       console.error(error);
       setStatus("error", "API not configured", `Expected ${API_BASE || "an API URL"}`);
+      els.countySummary.textContent = "Unavailable";
       els.areaSummary.textContent = "Unavailable";
       els.bandSummary.textContent = "Unavailable";
       els.typeSummary.textContent = "Unavailable";
-      els.selectionNote.textContent = "Deploy the Render Blueprint, then check config.js if the generated hostname differs.";
-      els.propertyRows.innerHTML = '<tr><td colspan="7" class="loading-cell">Complete the Render deployment to load live data.</td></tr>';
+      els.selectionNote.textContent = "Deploy the Render service, then check config.js if the generated hostname differs.";
+      els.propertyRows.innerHTML = '<tr><td colspan="8" class="loading-cell">Complete the Render deployment to load live data.</td></tr>';
       chart.clear();
     }
   }

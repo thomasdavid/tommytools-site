@@ -6,7 +6,7 @@ import os
 from sqlalchemy import select
 
 from .database import SessionLocal, create_schema
-from .helpers import infer_area
+from .helpers import infer_area, infer_county
 from .models import PropertySale
 
 LOGGER = logging.getLogger("property-area-cleanup")
@@ -24,17 +24,26 @@ def main() -> None:
     with SessionLocal() as session:
         sales = list(session.scalars(select(PropertySale)))
         for sale in sales:
-            area = infer_area(sale.address)
-            if sale.area == area:
+            county = infer_county(sale.address, sale.source_page, sale.county)
+            area = infer_area(sale.address, county)
+            if sale.county == county and sale.area == area:
                 unchanged += 1
                 continue
-            LOGGER.info("%s -> %s (%s)", sale.area, area, sale.address)
+            LOGGER.info(
+                "%s / %s -> %s / %s (%s)",
+                sale.county,
+                sale.area,
+                county,
+                area,
+                sale.address,
+            )
+            sale.county = county
             sale.area = area
             changed += 1
         session.commit()
 
     LOGGER.info(
-        "Area cleanup complete: %s changed, %s unchanged, %s total",
+        "County/area cleanup complete: %s changed, %s unchanged, %s total",
         changed,
         unchanged,
         changed + unchanged,

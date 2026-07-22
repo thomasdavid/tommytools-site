@@ -17,10 +17,14 @@ services:
         value: 3.12.7
       - key: CORS_ORIGINS
         value: https://tommytools.dev,https://www.tommytools.dev
+      - key: DEFAULT_COUNTIES
+        value: Dublin
       - key: DEFAULT_AREAS
         value: Blackrock,Ballsbridge,Ranelagh,Killiney,Dalkey,Monkstown
       - key: SCRAPE_START_YEAR
         value: 2025
+      - key: SCRAPE_COUNTIES
+        value: dublin,carlow,kildare,wicklow
 
 databases:
   - name: tommytools-property-db

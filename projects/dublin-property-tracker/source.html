@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="description" content="Review and download the property transactions used by the Tommy Tools property sale tracker.">
+  <title>Property Source Data | Tommy Tools</title>
+  <link rel="icon" type="image/png" href="/611e7a94-79a0-4794-a9b9-d9aaa719858f.png">
+  <link rel="stylesheet" href="./styles.css">
+  <script src="./config.js"></script>
+</head>
+<body>
+  <header class="topbar">
+    <div class="shell topbar-inner">
+      <a class="brand" href="/" aria-label="Tommy Tools home"><span class="mark">TT</span><span>Tommy Tools</span></a>
+      <a class="back-link" href="./">Back to dashboard</a>
+    </div>
+  </header>
+
+  <main class="shell page">
+    <section class="hero">
+      <div>
+        <p class="eyebrow">Underlying transactions</p>
+        <h1>Review source data</h1>
+        <p class="intro">Inspect the records stored in PostgreSQL, follow individual Daft listing links and download the filtered dataset as CSV.</p>
+      </div>
+      <div class="live-status" id="sourceStatus" role="status">
+        <span class="status-dot"></span>
+        <div><strong>Connecting to data</strong><small id="sourceStatusDetail">Loading metadata…</small></div>
+      </div>
+    </section>
+
+    <section class="panel source-panel">
+      <div class="panel-heading">
+        <div><p class="eyebrow">Filters</p><h2>Stored property sales</h2></div>
+        <div class="selection-note" id="sourceCount">Loading records…</div>
+      </div>
+
+      <div class="source-toolbar">
+        <label class="source-control"><span>County</span><select id="sourceCounty"><option value="">All counties</option></select></label>
+        <label class="source-control"><span>Area</span><select id="sourceArea"><option value="">All areas</option></select></label>
+        <label class="source-control"><span>Asking-price band</span><select id="sourceBand"><option value="">All price bands</option></select></label>
+        <label class="source-control"><span>Property type</span><select id="sourceType"><option value="">All property types</option></select></label>
+        <label class="source-control"><span>Search address or area</span><input id="sourceSearch" type="search" placeholder="e.g. Bray or Clontarf"></label>
+      </div>
+
+      <div class="source-actions">
+        <div class="button-row">
+          <button class="button primary" id="sourceApply" type="button">Apply filters</button>
+          <button class="button secondary" id="sourceReset" type="button">Clear filters</button>
+          <a class="button secondary button-link" id="sourceDownload" href="#">Download filtered CSV</a>
+        </div>
+        <div class="pagination">
+          <button class="button secondary" id="sourcePrevious" type="button">Previous</button>
+          <span id="sourcePage">Page 1</span>
+          <button class="button secondary" id="sourceNext" type="button">Next</button>
+        </div>
+      </div>
+
+      <div class="table-wrap source-table">
+        <table>
+          <thead><tr><th>Date</th><th>County</th><th>Area</th><th>Address</th><th>Detailed type</th><th>Group</th><th>Beds</th><th>Baths</th><th>m²</th><th>Asking</th><th>Sold</th><th>Difference</th><th>% difference</th><th>Scraped</th></tr></thead>
+          <tbody id="sourceRows"><tr><td colspan="14" class="loading-cell">Loading source records…</td></tr></tbody>
+        </table>
+      </div>
+    </section>
+
+    <p class="method-note">The CSV export contains the same stored fields plus source URLs and first/last seen timestamps. The review page shows 100 records per page, ordered by most recent sale date.</p>
+  </main>
+
+  <footer class="footer"><div class="shell"><span>© 2026 Tommy Tools</span><span>Developed by Thomas David</span></div></footer>
+  <script src="./source.js" defer></script>
+</body>
+</html>

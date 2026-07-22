@@ -208,6 +208,7 @@ def infer_area(address: str | None, county: str | None = None) -> str:
             suffix = routing_key.group(2).upper()
             if 1 <= number <= 24:
                 return f"Dublin {number}{suffix}"
+        return "Other"
 
     display = clean_text(address)
     if "," not in display:

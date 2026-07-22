@@ -16,6 +16,24 @@ def test_money_and_date_parsing() -> None:
 def test_area_inference_uses_named_dublin_area() -> None:
     assert infer_area("12 Example Road, Blackrock, Co. Dublin") == "Blackrock"
     assert infer_area("4 Harbour View, Dún Laoghaire, Dublin") == "Dún Laoghaire"
+    assert infer_area("10-example-road-ballsbridge-dublin-4-dublin") == "Ballsbridge"
+
+
+def test_area_inference_handles_slug_postal_districts() -> None:
+    assert (
+        infer_area("apt-3-bishopsmede-lower-clanbrassil-st-dublin-8-dublin")
+        == "Dublin 8"
+    )
+    assert (
+        infer_area("apt-42-block-a-riverview-court-the-bottleworks-dublin-4-dublin")
+        == "Dublin 4"
+    )
+    assert infer_area("Apartment 1, Example House, D06") == "Dublin 6"
+
+
+def test_area_inference_never_returns_an_address() -> None:
+    assert infer_area("Apartment 9, Unknown Development") == "Other"
+    assert infer_area("") == "Other"
 
 
 def test_property_type_normalisation() -> None:

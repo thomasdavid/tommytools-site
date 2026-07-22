@@ -4,6 +4,15 @@ import os
 from dataclasses import dataclass
 
 
+SUPPORTED_COUNTIES = (
+    "Dublin",
+    "Carlow",
+    "Kildare",
+    "Wicklow",
+)
+
+DEFAULT_COUNTIES = ("Dublin",)
+
 DEFAULT_AREAS = (
     "Blackrock",
     "Ballsbridge",
@@ -28,6 +37,7 @@ PRICE_BANDS = (
 class Settings:
     database_url: str
     cors_origins: tuple[str, ...]
+    default_counties: tuple[str, ...]
     default_areas: tuple[str, ...]
 
 
@@ -47,6 +57,12 @@ def get_settings() -> Settings:
         if value.strip()
     )
 
+    default_counties = tuple(
+        value.strip()
+        for value in os.getenv("DEFAULT_COUNTIES", ",".join(DEFAULT_COUNTIES)).split(",")
+        if value.strip()
+    )
+
     defaults = tuple(
         value.strip()
         for value in os.getenv("DEFAULT_AREAS", ",".join(DEFAULT_AREAS)).split(",")
@@ -56,5 +72,6 @@ def get_settings() -> Settings:
     return Settings(
         database_url=database_url,
         cors_origins=origins,
+        default_counties=default_counties,
         default_areas=defaults,
     )

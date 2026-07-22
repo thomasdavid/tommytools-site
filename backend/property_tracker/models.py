@@ -30,13 +30,14 @@ class PropertySale(Base):
     bathrooms: Mapped[int | None] = mapped_column(Integer)
     size_sqm: Mapped[float | None] = mapped_column(Float)
     address: Mapped[str] = mapped_column(Text, default="")
+    county: Mapped[str] = mapped_column(String(60), default="Dublin", index=True)
     area: Mapped[str] = mapped_column(String(120), default="Other", index=True)
     first_seen_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     last_seen_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     scraped_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
 
-Index("ix_property_sales_area_date", PropertySale.area, PropertySale.sale_date)
+Index("ix_property_sales_county_area_date", PropertySale.county, PropertySale.area, PropertySale.sale_date)
 Index("ix_property_sales_band_date", PropertySale.asking_band, PropertySale.sale_date)
 
 

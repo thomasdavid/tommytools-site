@@ -23,6 +23,7 @@ from .helpers import (
     extract_property_type,
     extract_sqm,
     infer_area,
+    infer_county,
     normalize_property_type,
     parse_money,
     parse_sale_date,
@@ -30,7 +31,12 @@ from .helpers import (
 from .models import PropertySale, ScrapeRun
 
 LOGGER = logging.getLogger("property-scraper")
-BASE_URL = "https://www.daft.ie/sold-properties/dublin"
+COUNTY_TARGETS = {
+    "dublin": "Dublin",
+    "carlow": "Carlow",
+    "kildare": "Kildare",
+    "wicklow": "Wicklow",
+}
 
 
 @dataclass
@@ -45,10 +51,11 @@ class Listing:
     bathrooms: int | None
     size_sqm: float | None
     address: str
+    county: str
 
 
 def money_after(label: str, text: str) -> float | None:
-    match = re.search(rf"{re.escape(label)}\s*:?[\s\u00a0]*€\s*[\d,]+(?:\.\d{{1,2}})?", text, re.I)
+    match = re.search(rf"{re.escape(label)}\s*:?\s*€\s*[\d,]+(?:\.\d{{1,2}})?", text, re.I)
     return parse_money(match.group(0)) if match else None
 
 
@@ -59,7 +66,7 @@ def text_or_empty(locator) -> str:
         return ""
 
 
-def extract_card(card, source_page: str) -> Listing | None:
+def extract_card(card, source_page: str, source_county: str) -> Listing | None:
     card_text = clean_text(card.inner_text(timeout=5_000))
     link = card.locator('a[href*="/sold/"]').first
     href = link.get_attribute("href")
@@ -73,6 +80,7 @@ def extract_card(card, source_page: str) -> Listing | None:
     sold = money_after("Sold", price_text)
     asking = money_after("Asking", price_text)
     property_type = extract_property_type(meta_text)
+    county = infer_county(address, source_page, source_county)
 
     return Listing(
         detail_url=urljoin("https://www.daft.ie", href),
@@ -85,6 +93,7 @@ def extract_card(card, source_page: str) -> Listing | None:
         bathrooms=extract_int(meta_text, "bath"),
         size_sqm=extract_sqm(meta_text),
         address=address,
+        county=county,
     )
 
 
@@ -109,11 +118,13 @@ def enrich_from_detail(page: Page, listing: Listing) -> Listing:
         listing.bathrooms = extract_int(body, "bath")
     if listing.size_sqm is None:
         listing.size_sqm = extract_sqm(body)
+    listing.county = infer_county(listing.address, listing.source_page, listing.county)
     return listing
 
 
-def list_url(page_number: int, start_year: int) -> str:
-    return f"{BASE_URL}?{urlencode({'soldDate_from': start_year, 'page': page_number})}"
+def list_url(county_slug: str, page_number: int, start_year: int) -> str:
+    base = f"https://www.daft.ie/sold-properties/{county_slug}"
+    return f"{base}?{urlencode({'soldDate_from': start_year, 'page': page_number})}"
 
 
 def upsert_sale(session: Session, listing: Listing) -> bool:
@@ -130,6 +141,7 @@ def upsert_sale(session: Session, listing: Listing) -> bool:
         else None
     )
     property_type = normalize_property_type(listing.property_type)
+    county = infer_county(listing.address, listing.source_page, listing.county)
 
     values = {
         "source_page": listing.source_page,
@@ -145,7 +157,8 @@ def upsert_sale(session: Session, listing: Listing) -> bool:
         "bathrooms": listing.bathrooms,
         "size_sqm": listing.size_sqm,
         "address": listing.address,
-        "area": infer_area(listing.address),
+        "county": county,
+        "area": infer_area(listing.address, county),
         "last_seen_at": now,
         "scraped_at": now,
     }
@@ -171,7 +184,22 @@ def needs_detail(listing: Listing) -> bool:
     )
 
 
-def run_scrape(mode: str, max_pages: int | None, headless: bool = True) -> None:
+def parse_counties(value: str | None) -> list[str]:
+    requested = [token.strip().casefold() for token in (value or "").split(",") if token.strip()]
+    if not requested:
+        requested = list(COUNTY_TARGETS)
+    invalid = [token for token in requested if token not in COUNTY_TARGETS]
+    if invalid:
+        raise ValueError(f"Unsupported counties: {', '.join(invalid)}")
+    return list(dict.fromkeys(requested))
+
+
+def run_scrape(
+    mode: str,
+    max_pages: int | None,
+    counties: list[str] | None = None,
+    headless: bool = True,
+) -> None:
     create_schema()
     start_year = int(os.getenv("SCRAPE_START_YEAR", "2025"))
     delay = float(os.getenv("SCRAPE_DELAY_SECONDS", "0.6"))
@@ -181,6 +209,7 @@ def run_scrape(mode: str, max_pages: int | None, headless: bool = True) -> None:
     page_limit = max_pages or (
         configured_incremental_pages if mode == "incremental" else configured_full_pages
     )
+    county_slugs = counties or parse_counties(os.getenv("SCRAPE_COUNTIES"))
 
     with SessionLocal() as session:
         run = ScrapeRun(mode=mode, status="running")
@@ -203,78 +232,98 @@ def run_scrape(mode: str, max_pages: int | None, headless: bool = True) -> None:
                 )
                 list_page = context.new_page()
                 detail_page = context.new_page()
-                unchanged_pages = 0
 
-                for page_number in range(1, page_limit + 1):
-                    source = list_url(page_number, start_year)
-                    LOGGER.info("Fetching page %s: %s", page_number, source)
-                    try:
-                        list_page.goto(source, wait_until="domcontentloaded", timeout=60_000)
+                for county_slug in county_slugs:
+                    county_label = COUNTY_TARGETS[county_slug]
+                    unchanged_pages = 0
+                    LOGGER.info("Starting %s scrape", county_label)
+
+                    for page_number in range(1, page_limit + 1):
+                        source = list_url(county_slug, page_number, start_year)
+                        LOGGER.info("Fetching %s page %s: %s", county_label, page_number, source)
                         try:
-                            list_page.wait_for_selector(
-                                'li[data-testid^="result-"]', timeout=15_000
-                            )
-                        except PlaywrightTimeoutError:
-                            pass
-
-                        cards = list_page.locator('li[data-testid^="result-"]')
-                        count = cards.count()
-                        if count == 0:
-                            body = clean_text(list_page.locator("body").inner_text(timeout=5_000))
-                            LOGGER.info("No cards on page %s; page text starts: %s", page_number, body[:180])
-                            break
-
-                        page_inserted = 0
-                        page_updated = 0
-                        for index in range(count):
-                            run.listings_seen += 1
+                            list_page.goto(source, wait_until="domcontentloaded", timeout=60_000)
                             try:
-                                listing = extract_card(cards.nth(index), source)
-                                if listing is None:
+                                list_page.wait_for_selector(
+                                    'li[data-testid^="result-"]', timeout=15_000
+                                )
+                            except PlaywrightTimeoutError:
+                                pass
+
+                            cards = list_page.locator('li[data-testid^="result-"]')
+                            count = cards.count()
+                            if count == 0:
+                                body = clean_text(list_page.locator("body").inner_text(timeout=5_000))
+                                LOGGER.info(
+                                    "No cards on %s page %s; page starts: %s",
+                                    county_label,
+                                    page_number,
+                                    body[:180],
+                                )
+                                break
+
+                            page_inserted = 0
+                            page_updated = 0
+                            for index in range(count):
+                                run.listings_seen += 1
+                                try:
+                                    listing = extract_card(cards.nth(index), source, county_label)
+                                    if listing is None:
+                                        run.errors += 1
+                                        continue
+                                    if needs_detail(listing):
+                                        listing = enrich_from_detail(detail_page, listing)
+                                        time.sleep(detail_delay + random.uniform(0, 0.25))
+                                    if upsert_sale(session, listing):
+                                        page_inserted += 1
+                                    else:
+                                        page_updated += 1
+                                except Exception as exc:
                                     run.errors += 1
-                                    continue
-                                if needs_detail(listing):
-                                    listing = enrich_from_detail(detail_page, listing)
-                                    time.sleep(detail_delay + random.uniform(0, 0.25))
-                                if upsert_sale(session, listing):
-                                    page_inserted += 1
-                                else:
-                                    page_updated += 1
-                            except Exception as exc:
-                                run.errors += 1
-                                LOGGER.warning("Listing failed on page %s: %s", page_number, exc)
+                                    LOGGER.warning(
+                                        "Listing failed on %s page %s: %s",
+                                        county_label,
+                                        page_number,
+                                        exc,
+                                    )
 
-                        run.pages_scanned += 1
-                        run.inserted += page_inserted
-                        run.updated += page_updated
-                        session.commit()
-                        LOGGER.info(
-                            "Page %s complete: %s new, %s updated",
-                            page_number,
-                            page_inserted,
-                            page_updated,
-                        )
+                            run.pages_scanned += 1
+                            run.inserted += page_inserted
+                            run.updated += page_updated
+                            session.commit()
+                            LOGGER.info(
+                                "%s page %s complete: %s new, %s updated",
+                                county_label,
+                                page_number,
+                                page_inserted,
+                                page_updated,
+                            )
 
-                        if page_inserted == 0:
-                            unchanged_pages += 1
-                        else:
-                            unchanged_pages = 0
-                        if mode == "incremental" and unchanged_pages >= 3:
-                            LOGGER.info("Three consecutive pages without new listings; stopping.")
-                            break
-                        time.sleep(delay + random.uniform(0, 0.35))
-                    except Exception as exc:
-                        run.errors += 1
-                        session.commit()
-                        LOGGER.exception("Page %s failed: %s", page_number, exc)
-                        if run.errors >= 10:
-                            raise RuntimeError("Stopped after repeated scrape errors") from exc
+                            if page_inserted == 0:
+                                unchanged_pages += 1
+                            else:
+                                unchanged_pages = 0
+                            if mode == "incremental" and unchanged_pages >= 3:
+                                LOGGER.info(
+                                    "Three unchanged %s pages; moving to next county.",
+                                    county_label,
+                                )
+                                break
+                            time.sleep(delay + random.uniform(0, 0.35))
+                        except Exception as exc:
+                            run.errors += 1
+                            session.commit()
+                            LOGGER.exception(
+                                "%s page %s failed: %s", county_label, page_number, exc
+                            )
+                            if run.errors >= 20:
+                                raise RuntimeError("Stopped after repeated scrape errors") from exc
 
                 browser.close()
 
             run.status = "completed"
             run.completed_at = datetime.now(timezone.utc)
-            run.message = "Scrape completed successfully"
+            run.message = "Scrape completed for " + ", ".join(COUNTY_TARGETS[slug] for slug in county_slugs)
             session.commit()
         except Exception as exc:
             run.status = "failed"
@@ -285,9 +334,14 @@ def run_scrape(mode: str, max_pages: int | None, headless: bool = True) -> None:
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Scrape Dublin sold properties from Daft")
+    parser = argparse.ArgumentParser(description="Scrape sold properties from Daft")
     parser.add_argument("--mode", choices=("incremental", "full"), default="incremental")
-    parser.add_argument("--max-pages", type=int, default=None)
+    parser.add_argument("--max-pages", type=int, default=None, help="Page limit per county")
+    parser.add_argument(
+        "--counties",
+        default=os.getenv("SCRAPE_COUNTIES", "dublin,carlow,kildare,wicklow"),
+        help="Comma-separated county slugs: dublin,carlow,kildare,wicklow",
+    )
     parser.add_argument("--show-browser", action="store_true")
     return parser.parse_args()
 
@@ -298,7 +352,12 @@ def main() -> None:
         format="%(asctime)s %(levelname)s %(name)s: %(message)s",
     )
     args = parse_args()
-    run_scrape(args.mode, args.max_pages, headless=not args.show_browser)
+    run_scrape(
+        args.mode,
+        args.max_pages,
+        counties=parse_counties(args.counties),
+        headless=not args.show_browser,
+    )
 
 
 if __name__ == "__main__":

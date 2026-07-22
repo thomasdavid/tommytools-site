@@ -1,0 +1,58 @@
+name: Dublin property scrape
+
+on:
+  schedule:
+    - cron: "20 5 * * *"
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: Scrape mode
+        required: true
+        default: incremental
+        type: choice
+        options:
+          - incremental
+          - full
+      max_pages:
+        description: Optional page limit
+        required: false
+        type: string
+
+concurrency:
+  group: dublin-property-scrape
+  cancel-in-progress: false
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+    timeout-minutes: 330
+    env:
+      PYTHONPATH: backend
+      DATABASE_URL: ${{ secrets.PROPERTY_DATABASE_URL }}
+      SCRAPE_START_YEAR: "2025"
+      INCREMENTAL_MAX_PAGES: "20"
+      FULL_MAX_PAGES: "500"
+      SCRAPE_DELAY_SECONDS: "0.6"
+      DETAIL_DELAY_SECONDS: "0.35"
+      LOG_LEVEL: INFO
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+      - name: Install Python dependencies
+        run: pip install -r backend/requirements.txt
+      - name: Install Chromium
+        run: python -m playwright install --with-deps chromium
+      - name: Run scraper
+        shell: bash
+        run: |
+          MODE="${{ github.event.inputs.mode || 'incremental' }}"
+          MAX_PAGES="${{ github.event.inputs.max_pages }}"
+          COMMAND=(python -m property_tracker.scraper --mode "$MODE")
+          if [ -n "$MAX_PAGES" ]; then
+            COMMAND+=(--max-pages "$MAX_PAGES")
+          fi
+          "${COMMAND[@]}"

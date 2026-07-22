@@ -130,17 +130,38 @@ def asking_band(value: float | None) -> str:
     return "1300k+"
 
 
+def area_search_text(value: str | None) -> str:
+    """Normalise normal addresses and Daft URL-style slugs for locality matching."""
+    normal = clean_text(value).casefold().replace("–", "-")
+    normal = re.sub(r"[-_/]+", " ", normal)
+    return re.sub(r"\s+", " ", normal).strip()
+
+
 def infer_area(address: str | None) -> str:
-    normal = clean_text(address).casefold().replace("–", "-")
+    """Return a locality or Dublin postal district, never an arbitrary address."""
+    normal = area_search_text(address)
+    if not normal:
+        return "Other"
+
     for needle, label in AREA_ALIASES:
-        if needle.casefold() in normal:
+        normal_needle = area_search_text(needle)
+        if re.search(rf"(?<!\w){re.escape(normal_needle)}(?!\w)", normal):
             return label
 
-    parts = [part.strip() for part in clean_text(address).split(",") if part.strip()]
-    ignored = re.compile(r"^(co\.?\s*dublin|county dublin|dublin(?:\s+\d{1,2}[a-z]?)?|ireland)$", re.I)
-    for part in reversed(parts):
-        if not ignored.match(part):
-            return part[:120]
+    # Daft slugs commonly end in forms such as "dublin-8-dublin".
+    district_matches = re.findall(r"\bdublin\s+(\d{1,2}[a-z]?)\b", normal, re.I)
+    if district_matches:
+        district = district_matches[-1].upper()
+        return f"Dublin {district}"
+
+    # Eircode routing keys can also identify a broad Dublin postal district.
+    routing_key = re.search(r"\bd0?(\d{1,2})([a-z]?)\b", normal, re.I)
+    if routing_key:
+        number = int(routing_key.group(1))
+        suffix = routing_key.group(2).upper()
+        if 1 <= number <= 24:
+            return f"Dublin {number}{suffix}"
+
     return "Other"
 
 

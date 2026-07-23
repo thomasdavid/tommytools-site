@@ -39,7 +39,6 @@ jobs:
       INCREMENTAL_MAX_PAGES: "20"
       FULL_MAX_PAGES: "500"
       SCRAPE_DELAY_SECONDS: "0.6"
-      DETAIL_DELAY_SECONDS: "0.35"
       LOG_LEVEL: INFO
     steps:
       - uses: actions/checkout@v4
@@ -50,15 +49,13 @@ jobs:
           cache-dependency-path: backend/requirements.txt
       - name: Install Python dependencies
         run: pip install -r backend/requirements.txt
-      - name: Install Chromium
-        run: python -m playwright install --with-deps chromium
-      - name: Run scraper
+      - name: Run server-rendered sold-card scraper
         shell: bash
         run: |
           MODE="${{ github.event.inputs.mode || 'incremental' }}"
           COUNTIES="${{ github.event.inputs.counties || 'dublin,carlow,kildare,wicklow' }}"
           MAX_PAGES="${{ github.event.inputs.max_pages }}"
-          COMMAND=(python -m property_tracker.scraper --mode "$MODE" --counties "$COUNTIES")
+          COMMAND=(python -m property_tracker.http_scraper --mode "$MODE" --counties "$COUNTIES")
           if [ -n "$MAX_PAGES" ]; then
             COMMAND+=(--max-pages "$MAX_PAGES")
           fi

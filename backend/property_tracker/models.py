@@ -18,6 +18,9 @@ class PropertySale(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     detail_url: Mapped[str] = mapped_column(Text, unique=True, nullable=False)
     source_page: Mapped[str | None] = mapped_column(Text)
+    source_kind: Mapped[str] = mapped_column(String(32), default="unknown", index=True)
+    quality_status: Mapped[str] = mapped_column(String(20), default="review", index=True)
+    quality_notes: Mapped[str | None] = mapped_column(Text)
     sale_date: Mapped[date | None] = mapped_column(Date, index=True)
     sold_price_eur: Mapped[float | None] = mapped_column(Float)
     asking_price_eur: Mapped[float | None] = mapped_column(Float)
@@ -38,6 +41,7 @@ class PropertySale(Base):
 
 
 Index("ix_property_sales_county_area_date", PropertySale.county, PropertySale.area, PropertySale.sale_date)
+Index("ix_property_sales_quality_date", PropertySale.quality_status, PropertySale.sale_date)
 Index("ix_property_sales_band_date", PropertySale.asking_band, PropertySale.sale_date)
 
 

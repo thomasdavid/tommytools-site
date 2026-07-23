@@ -7,7 +7,7 @@ import random
 import re
 import time
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from urllib.parse import urlencode, urljoin
 
 from playwright.sync_api import Browser, Page, TimeoutError as PlaywrightTimeoutError, sync_playwright
@@ -29,6 +29,7 @@ from .helpers import (
     parse_sale_date,
 )
 from .models import PropertySale, ScrapeRun
+from .quality import address_from_card_text, human_address, listing_quality
 
 LOGGER = logging.getLogger("property-scraper")
 COUNTY_TARGETS = {
@@ -43,7 +44,7 @@ COUNTY_TARGETS = {
 class Listing:
     detail_url: str
     source_page: str
-    sale_date: object | None
+    sale_date: date | None
     sold_price_eur: float | None
     asking_price_eur: float | None
     property_type: str
@@ -52,6 +53,7 @@ class Listing:
     size_sqm: float | None
     address: str
     county: str
+    source_kind: str = "daft_live"
 
 
 def money_after(label: str, text: str) -> float | None:
@@ -74,6 +76,9 @@ def extract_card(card, source_page: str, source_county: str) -> Listing | None:
         return None
 
     address = text_or_empty(card.locator('[data-tracking="srp_address"]'))
+    if not human_address(address):
+        address = address_from_card_text(card_text)
+
     price_text = text_or_empty(card.locator('[data-tracking="srp_price"]')) or card_text
     meta_text = text_or_empty(card.locator('[data-tracking="srp_meta"]')) or card_text
 
@@ -97,6 +102,17 @@ def extract_card(card, source_page: str, source_county: str) -> Listing | None:
     )
 
 
+def detail_address(page: Page) -> str:
+    candidates = [text_or_empty(page.locator("h1"))]
+    try:
+        title = page.locator('meta[property="og:title"]').first.get_attribute("content") or ""
+        title = re.sub(r"\s*\|\s*Daft.*$", "", clean_text(title), flags=re.I)
+        candidates.append(title)
+    except Exception:
+        pass
+    return next((candidate for candidate in candidates if human_address(candidate)), "")
+
+
 def enrich_from_detail(page: Page, listing: Listing) -> Listing:
     page.goto(listing.detail_url, wait_until="domcontentloaded", timeout=60_000)
     page.wait_for_timeout(600)
@@ -108,8 +124,8 @@ def enrich_from_detail(page: Page, listing: Listing) -> Listing:
         listing.asking_price_eur = money_after("Asking", body) or money_after("Asking price", body)
     if listing.sale_date is None:
         listing.sale_date = parse_sale_date(body)
-    if not listing.address:
-        listing.address = text_or_empty(page.locator("h1"))
+    if not human_address(listing.address):
+        listing.address = detail_address(page)
     if listing.property_type == "Unknown":
         listing.property_type = extract_property_type(body)
     if listing.bedrooms is None:
@@ -132,6 +148,7 @@ def upsert_sale(session: Session, listing: Listing) -> bool:
     existing = session.scalar(
         select(PropertySale).where(PropertySale.detail_url == listing.detail_url)
     )
+
     sold = listing.sold_price_eur
     asking = listing.asking_price_eur
     delta_eur = sold - asking if sold is not None and asking is not None else None
@@ -142,9 +159,34 @@ def upsert_sale(session: Session, listing: Listing) -> bool:
     )
     property_type = normalize_property_type(listing.property_type)
     county = infer_county(listing.address, listing.source_page, listing.county)
+    quality_status, quality_notes = listing_quality(
+        listing.sale_date, sold, asking, listing.address
+    )
+
+    if (
+        existing is not None
+        and existing.source_kind == "daft_live"
+        and existing.quality_status == "valid"
+        and listing.source_kind != "daft_live"
+    ):
+        return False
+
+    if (
+        existing is not None
+        and existing.quality_status == "valid"
+        and quality_status != "valid"
+        and listing.source_kind == "daft_live"
+    ):
+        existing.last_seen_at = now
+        existing.scraped_at = now
+        existing.source_page = listing.source_page
+        return False
 
     values = {
         "source_page": listing.source_page,
+        "source_kind": listing.source_kind,
+        "quality_status": quality_status,
+        "quality_notes": quality_notes,
         "sale_date": listing.sale_date,
         "sold_price_eur": sold,
         "asking_price_eur": asking,
@@ -168,7 +210,9 @@ def upsert_sale(session: Session, listing: Listing) -> bool:
         return True
 
     for field, value in values.items():
-        if value not in (None, "") or field in {"last_seen_at", "scraped_at"}:
+        if value not in (None, "") or field in {
+            "last_seen_at", "scraped_at", "quality_notes", "quality_status"
+        }:
             setattr(existing, field, value)
     return False
 
@@ -178,7 +222,8 @@ def needs_detail(listing: Listing) -> bool:
         (
             listing.sold_price_eur is None,
             listing.asking_price_eur is None,
-            not listing.address,
+            listing.sale_date is None,
+            not human_address(listing.address),
             listing.property_type == "Unknown",
         )
     )
@@ -256,9 +301,7 @@ def run_scrape(
                                 body = clean_text(list_page.locator("body").inner_text(timeout=5_000))
                                 LOGGER.info(
                                     "No cards on %s page %s; page starts: %s",
-                                    county_label,
-                                    page_number,
-                                    body[:180],
+                                    county_label, page_number, body[:180],
                                 )
                                 break
 
@@ -274,6 +317,20 @@ def run_scrape(
                                     if needs_detail(listing):
                                         listing = enrich_from_detail(detail_page, listing)
                                         time.sleep(detail_delay + random.uniform(0, 0.25))
+                                    quality_status, quality_notes = listing_quality(
+                                        listing.sale_date,
+                                        listing.sold_price_eur,
+                                        listing.asking_price_eur,
+                                        listing.address,
+                                    )
+                                    if quality_status != "valid":
+                                        run.errors += 1
+                                        LOGGER.warning(
+                                            "Rejected malformed listing %s: %s",
+                                            listing.detail_url,
+                                            quality_notes,
+                                        )
+                                        continue
                                     if upsert_sale(session, listing):
                                         page_inserted += 1
                                     else:
@@ -282,9 +339,7 @@ def run_scrape(
                                     run.errors += 1
                                     LOGGER.warning(
                                         "Listing failed on %s page %s: %s",
-                                        county_label,
-                                        page_number,
-                                        exc,
+                                        county_label, page_number, exc,
                                     )
 
                             run.pages_scanned += 1
@@ -293,10 +348,7 @@ def run_scrape(
                             session.commit()
                             LOGGER.info(
                                 "%s page %s complete: %s new, %s updated",
-                                county_label,
-                                page_number,
-                                page_inserted,
-                                page_updated,
+                                county_label, page_number, page_inserted, page_updated,
                             )
 
                             if page_inserted == 0:
@@ -304,18 +356,13 @@ def run_scrape(
                             else:
                                 unchanged_pages = 0
                             if mode == "incremental" and unchanged_pages >= 3:
-                                LOGGER.info(
-                                    "Three unchanged %s pages; moving to next county.",
-                                    county_label,
-                                )
+                                LOGGER.info("Three unchanged %s pages; moving on.", county_label)
                                 break
                             time.sleep(delay + random.uniform(0, 0.35))
                         except Exception as exc:
                             run.errors += 1
                             session.commit()
-                            LOGGER.exception(
-                                "%s page %s failed: %s", county_label, page_number, exc
-                            )
+                            LOGGER.exception("%s page %s failed: %s", county_label, page_number, exc)
                             if run.errors >= 20:
                                 raise RuntimeError("Stopped after repeated scrape errors") from exc
 
@@ -323,7 +370,9 @@ def run_scrape(
 
             run.status = "completed"
             run.completed_at = datetime.now(timezone.utc)
-            run.message = "Scrape completed for " + ", ".join(COUNTY_TARGETS[slug] for slug in county_slugs)
+            run.message = "Scrape completed for " + ", ".join(
+                COUNTY_TARGETS[slug] for slug in county_slugs
+            )
             session.commit()
         except Exception as exc:
             run.status = "failed"

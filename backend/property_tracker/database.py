@@ -32,18 +32,44 @@ def create_schema() -> None:
 
     Base.metadata.create_all(bind=engine)
 
-    # create_all does not add columns to existing tables. Keep this small migration
-    # here so existing Render databases gain the county field automatically.
+    # create_all does not add columns to an existing table. These small,
+    # idempotent migrations keep the Render database compatible without a
+    # separate migration service.
     inspector = inspect(engine)
     if "property_sales" not in inspector.get_table_names():
         return
+
     columns = {column["name"] for column in inspector.get_columns("property_sales")}
-    if "county" not in columns:
-        with engine.begin() as connection:
-            connection.execute(
-                text("ALTER TABLE property_sales ADD COLUMN county VARCHAR(60) DEFAULT 'Dublin'")
-            )
+    additions = {
+        "county": "VARCHAR(60) DEFAULT 'Dublin'",
+        "source_kind": "VARCHAR(32) DEFAULT 'unknown'",
+        "quality_status": "VARCHAR(20) DEFAULT 'review'",
+        "quality_notes": "TEXT",
+    }
     with engine.begin() as connection:
+        for name, definition in additions.items():
+            if name not in columns:
+                connection.execute(text(f"ALTER TABLE property_sales ADD COLUMN {name} {definition}"))
+
         connection.execute(
             text("UPDATE property_sales SET county = 'Dublin' WHERE county IS NULL OR county = ''")
+        )
+        connection.execute(
+            text(
+                """
+                UPDATE property_sales
+                SET source_kind = CASE
+                    WHEN detail_url LIKE 'sheet-import://%' OR source_page = 'Google Sheet import'
+                        THEN 'sheet_import'
+                    ELSE COALESCE(NULLIF(source_kind, ''), 'unknown')
+                END
+                WHERE source_kind IS NULL OR source_kind = '' OR source_kind = 'unknown'
+                """
+            )
+        )
+        connection.execute(
+            text(
+                "UPDATE property_sales SET quality_status = 'review' "
+                "WHERE quality_status IS NULL OR quality_status = ''"
+            )
         )

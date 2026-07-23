@@ -10,8 +10,10 @@ The live Playwright scraper now:
 2. extracts the full address between the SOLD date and the sold price if the address locator fails;
 3. uses the detail page only as a fallback;
 4. validates sale date, sold price, asking price and address;
-5. stores incomplete or URL-style rows with `quality_status=review` rather than treating them as analysis-ready data;
+5. rejects malformed live rows before they are published;
 6. protects an existing valid live record from being overwritten by a bad response or a legacy Sheet import.
+
+Legacy rows already in PostgreSQL are audited separately. Incomplete records are marked `quality_status=review` so the cleanup step can remove them safely.
 
 ## Controlled rebuild
 
@@ -60,4 +62,4 @@ Rows failing these checks are marked `review` and can be removed by a rebuild wi
 
 ## Daily updates
 
-The existing **Regional property scrape** workflow continues to run incrementally each day. It now uses the same validation rules and will quarantine malformed responses instead of allowing them into the trusted dataset.
+The existing **Regional property scrape** workflow continues to run incrementally each day. It now uses the same validation rules and rejects malformed responses instead of allowing them into the dataset.

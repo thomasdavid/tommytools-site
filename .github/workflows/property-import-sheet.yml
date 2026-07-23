@@ -1,10 +1,21 @@
-name: Import property Google Sheet
+name: Sync property Google Sheet
 
 on:
+  schedule:
+    - cron: "15 6 * * *"
   workflow_dispatch:
+    inputs:
+      minimum_valid_rows:
+        description: Minimum valid rows required before committing
+        required: true
+        default: "5"
+        type: string
+
+permissions:
+  contents: read
 
 concurrency:
-  group: dublin-property-database-write
+  group: property-database-write
   cancel-in-progress: false
 
 jobs:
@@ -15,14 +26,16 @@ jobs:
       DATABASE_URL: ${{ secrets.PROPERTY_DATABASE_URL }}
       GOOGLE_SHEET_ID: 1teB5wZq7-SiBlohTapD-etsHpJcvak3st_dZVIKUMDw
       GOOGLE_SHEET_NAME: Raw
+      MIN_VALID_SHEET_ROWS: ${{ github.event.inputs.minimum_valid_rows || '5' }}
+      LOG_LEVEL: INFO
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
+          python-version: "3.13"
           cache: pip
           cache-dependency-path: backend/requirements.txt
       - name: Install dependencies
         run: pip install -r backend/requirements.txt
-      - name: Import Raw sheet
+      - name: Import validated Raw sheet rows
         run: python -m property_tracker.import_sheet

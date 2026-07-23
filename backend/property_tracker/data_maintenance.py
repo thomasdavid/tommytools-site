@@ -4,7 +4,7 @@ import argparse
 import logging
 import os
 
-from sqlalchemy import delete, select
+from sqlalchemy import delete, func, select
 
 from .database import SessionLocal, create_schema
 from .helpers import infer_area, infer_county
@@ -43,8 +43,40 @@ def audit() -> tuple[int, int]:
     return valid, review
 
 
-def cleanup(county_slugs: list[str], remove_legacy: bool) -> int:
+def assert_safe_replacement(counties: list[str], min_valid_per_county: int) -> None:
+    """Refuse destructive cleanup unless each county has fresh valid live rows."""
+    failures: list[str] = []
+    with SessionLocal() as session:
+        for county in counties:
+            count = session.scalar(
+                select(func.count())
+                .select_from(PropertySale)
+                .where(
+                    PropertySale.county == county,
+                    PropertySale.quality_status == "valid",
+                    PropertySale.source_kind == "daft_live",
+                )
+            ) or 0
+            LOGGER.info("Replacement safety check: %s has %s valid live rows", county, count)
+            if count < min_valid_per_county:
+                failures.append(f"{county}: {count}/{min_valid_per_county}")
+
+    if failures:
+        raise RuntimeError(
+            "Cleanup blocked because the replacement scrape is incomplete: "
+            + ", ".join(failures)
+        )
+
+
+def cleanup(
+    county_slugs: list[str],
+    remove_legacy: bool,
+    min_valid_per_county: int = 5,
+) -> int:
     counties = [COUNTY_TARGETS[slug] for slug in county_slugs]
+    if remove_legacy:
+        assert_safe_replacement(counties, min_valid_per_county)
+
     with SessionLocal() as session:
         statement = delete(PropertySale).where(PropertySale.county.in_(counties))
         if remove_legacy:
@@ -74,6 +106,12 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Also remove non-live legacy imports after a successful scrape",
     )
+    parser.add_argument(
+        "--min-valid-per-county",
+        type=int,
+        default=5,
+        help="Minimum valid live rows required per county before legacy cleanup",
+    )
     return parser.parse_args()
 
 
@@ -88,7 +126,11 @@ def main() -> None:
         audit()
     else:
         audit()
-        cleanup(parse_counties(args.counties), args.remove_legacy)
+        cleanup(
+            parse_counties(args.counties),
+            args.remove_legacy,
+            args.min_valid_per_county,
+        )
 
 
 if __name__ == "__main__":

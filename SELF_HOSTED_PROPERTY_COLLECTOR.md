@@ -38,37 +38,48 @@ property-scraper
 
 The machine must be switched on and connected to the internet when a scheduled job is due.
 
-## Install Python once
+## Use an existing Python installation
 
-Do not rely on `actions/setup-python` on this runner. Install **Python 3.12 x64 system-wide** using the official Windows installer.
+The collector supports **Python 3.13 or Python 3.12 x64**. Python 3.13 is preferred when both are installed.
 
-During installation:
+The workflows look for these locations:
 
-- choose **Customize installation**;
-- enable **Install for all users**;
-- enable **Add Python to environment variables**;
-- keep the default all-users path, normally `C:\Program Files\Python312`;
-- include `pip` and the Python launcher.
+```text
+C:\Program Files\Python313\python.exe
+C:\Program Files\Python312\python.exe
+C:\Python313\python.exe
+C:\Python312\python.exe
+```
 
-After installation, restart the runner service from Administrator PowerShell:
+They also try the Windows Python launcher and the runner service account's `PATH`.
+
+Check where Python is installed from Administrator PowerShell:
+
+```powershell
+py -0p
+where.exe python
+python --version
+```
+
+A system-wide installation under `C:\Program Files\Python313` is the simplest arrangement. A Python installation under your personal `AppData` directory may not be visible to a runner service using `NT AUTHORITY\NETWORK SERVICE`.
+
+After installing or changing Python, restart the runner service:
 
 ```powershell
 Get-Service "actions.runner.*" | Restart-Service
 ```
 
-Confirm the system installation:
+Confirm Python 3.13, for example:
 
 ```powershell
-& "C:\Program Files\Python312\python.exe" --version
-& "C:\Program Files\Python312\python.exe" -m pip --version
+& "C:\Program Files\Python313\python.exe" --version
+& "C:\Program Files\Python313\python.exe" -m pip --version
 ```
-
-The workflows locate Python in `C:\Program Files\Python312`, `C:\Python312`, the runner account's local Python folder, or the service account's `PATH`. They fail with a clear message if Python 3.12 cannot be found.
 
 ## Machine requirements
 
 - Windows 10 or Windows 11 x64
-- Python 3.12 x64 installed for all users
+- Python 3.13 or 3.12 x64 visible to the runner service
 - Enough disk space for the GitHub runner checkout and Playwright Chromium
 - Access to the Render PostgreSQL external hostname
 

@@ -50,25 +50,40 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Locate system Python 3.12
+      - name: Locate system Python 3.13 or 3.12
         shell: pwsh
         run: |
           $candidates = @(
+            "C:\Program Files\Python313\python.exe",
             "C:\Program Files\Python312\python.exe",
+            "C:\Python313\python.exe",
             "C:\Python312\python.exe",
+            "$env:LOCALAPPDATA\Programs\Python\Python313\python.exe",
             "$env:LOCALAPPDATA\Programs\Python\Python312\python.exe"
           )
           $python = $candidates | Where-Object { Test-Path $_ } | Select-Object -First 1
+          if (-not $python) {
+            $launcher = Get-Command py.exe -ErrorAction SilentlyContinue
+            if ($launcher) {
+              foreach ($selector in @("-3.13", "-3.12")) {
+                $resolved = & $launcher.Source $selector -c "import sys; print(sys.executable)" 2>$null
+                if ($LASTEXITCODE -eq 0 -and $resolved -and (Test-Path $resolved)) {
+                  $python = $resolved
+                  break
+                }
+              }
+            }
+          }
           if (-not $python) {
             $command = Get-Command python.exe -ErrorAction SilentlyContinue
             if ($command) { $python = $command.Source }
           }
           if (-not $python) {
-            throw "Python 3.12 x64 was not found. Install Python 3.12 for all users, then restart the GitHub runner service."
+            throw "Python 3.13 or 3.12 x64 was not found. Install it for all users, then restart the GitHub runner service."
           }
           $version = & $python -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')"
-          if ($version -ne "3.12") {
-            throw "Python 3.12 is required; found $version at $python"
+          if ($version -notin @("3.13", "3.12")) {
+            throw "Python 3.13 or 3.12 is required; found $version at $python"
           }
           "PYTHON_EXE=$python" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
           $pythonDir = Split-Path $python

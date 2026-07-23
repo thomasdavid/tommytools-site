@@ -13,6 +13,16 @@ on:
         required: true
         default: "10"
         type: string
+      interactive_browser:
+        description: Open Chrome visibly and wait for a manually completed security check
+        required: true
+        default: true
+        type: boolean
+      challenge_wait_seconds:
+        description: Maximum wait for the visible security check
+        required: true
+        default: "300"
+        type: string
       remove_legacy:
         description: After a successful scrape, remove review rows and old Sheet imports
         required: true
@@ -74,7 +84,7 @@ jobs:
             if ($command) { $python = $command.Source }
           }
           if (-not $python) {
-            throw "Python 3.13 or 3.12 x64 was not found. Install it for all users, then restart the GitHub runner service."
+            throw "Python 3.13 or 3.12 x64 was not found."
           }
           $version = & $python -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')"
           if ($version -notin @("3.13", "3.12")) {
@@ -102,7 +112,19 @@ jobs:
       - name: Scrape fresh Daft sold listings
         shell: powershell
         run: |
-          & $env:PYTHON_EXE -m property_tracker.scraper --mode full --counties "${{ inputs.counties }}" --max-pages "${{ inputs.max_pages }}"
+          $arguments = @(
+            "-m", "property_tracker.scraper",
+            "--mode", "full",
+            "--counties", "${{ inputs.counties }}",
+            "--max-pages", "${{ inputs.max_pages }}",
+            "--profile-dir", "C:\actions-runner\daft-browser-profile",
+            "--browser-channel", "chrome",
+            "--challenge-wait-seconds", "${{ inputs.challenge_wait_seconds }}"
+          )
+          if ("${{ inputs.interactive_browser }}" -eq "true") {
+            $arguments += "--show-browser"
+          }
+          & $env:PYTHON_EXE @arguments
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Audit all stored records

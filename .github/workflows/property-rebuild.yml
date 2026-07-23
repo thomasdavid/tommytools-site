@@ -24,19 +24,23 @@ on:
         default: "5"
         type: string
 
+permissions:
+  contents: read
+
 concurrency:
-  group: dublin-property-database-write
+  group: property-database-write
   cancel-in-progress: false
 
 jobs:
   rebuild:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, windows, x64, property-scraper]
     timeout-minutes: 330
     env:
       PYTHONPATH: backend
       DATABASE_URL: ${{ secrets.PROPERTY_DATABASE_URL }}
       SCRAPE_START_YEAR: "2025"
-      SCRAPE_DELAY_SECONDS: "0.6"
+      SCRAPE_DELAY_SECONDS: "0.8"
+      DETAIL_DELAY_SECONDS: "0.45"
       LOG_LEVEL: INFO
     steps:
       - uses: actions/checkout@v4
@@ -46,17 +50,24 @@ jobs:
           cache: pip
           cache-dependency-path: backend/requirements.txt
       - name: Install Python dependencies
-        run: pip install -r backend/requirements.txt
-      - name: Scrape fresh server-rendered sold cards
+        shell: pwsh
+        run: python -m pip install -r backend/requirements.txt
+      - name: Install Playwright Chromium
+        shell: pwsh
+        run: python -m playwright install chromium
+      - name: Scrape fresh Daft sold listings
+        shell: pwsh
         run: >-
-          python -m property_tracker.http_scraper
+          python -m property_tracker.scraper
           --mode full
           --counties "${{ inputs.counties }}"
           --max-pages "${{ inputs.max_pages }}"
       - name: Audit all stored records
+        shell: pwsh
         run: python -m property_tracker.data_maintenance audit
       - name: Remove invalid and legacy rows after successful scrape
         if: ${{ inputs.remove_legacy }}
+        shell: pwsh
         run: >-
           python -m property_tracker.data_maintenance cleanup
           --counties "${{ inputs.counties }}"

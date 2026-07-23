@@ -46,7 +46,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Locate system Python 3.13 or 3.12
-        shell: pwsh
+        shell: powershell
         run: |
           $candidates = @(
             "C:\Program Files\Python313\python.exe",
@@ -87,33 +87,33 @@ jobs:
           & $python --version
 
       - name: Install Python dependencies
-        shell: pwsh
+        shell: powershell
         run: |
           & $env:PYTHON_EXE -m pip install --upgrade pip
           & $env:PYTHON_EXE -m pip install -r backend/requirements.txt
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Install Playwright Chromium
-        shell: pwsh
+        shell: powershell
         run: |
           & $env:PYTHON_EXE -m playwright install chromium
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Scrape fresh Daft sold listings
-        shell: pwsh
+        shell: powershell
         run: |
           & $env:PYTHON_EXE -m property_tracker.scraper --mode full --counties "${{ inputs.counties }}" --max-pages "${{ inputs.max_pages }}"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Audit all stored records
-        shell: pwsh
+        shell: powershell
         run: |
           & $env:PYTHON_EXE -m property_tracker.data_maintenance audit
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Remove invalid and legacy rows after successful scrape
         if: ${{ inputs.remove_legacy }}
-        shell: pwsh
+        shell: powershell
         run: |
           & $env:PYTHON_EXE -m property_tracker.data_maintenance cleanup --counties "${{ inputs.counties }}" --remove-legacy --min-valid-per-county "${{ inputs.min_valid_per_county }}"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }

@@ -1,0 +1,61 @@
+name: Rebuild property dataset
+
+on:
+  workflow_dispatch:
+    inputs:
+      counties:
+        description: Comma-separated county slugs
+        required: true
+        default: dublin,carlow,kildare,wicklow
+        type: string
+      max_pages:
+        description: Page limit per county
+        required: true
+        default: "10"
+        type: string
+      remove_legacy:
+        description: After a successful scrape, remove review rows and old Sheet imports
+        required: true
+        default: false
+        type: boolean
+
+concurrency:
+  group: dublin-property-database-write
+  cancel-in-progress: false
+
+jobs:
+  rebuild:
+    runs-on: ubuntu-latest
+    timeout-minutes: 330
+    env:
+      PYTHONPATH: backend
+      DATABASE_URL: ${{ secrets.PROPERTY_DATABASE_URL }}
+      SCRAPE_START_YEAR: "2025"
+      SCRAPE_DELAY_SECONDS: "0.6"
+      DETAIL_DELAY_SECONDS: "0.35"
+      LOG_LEVEL: INFO
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+      - name: Install Python dependencies
+        run: pip install -r backend/requirements.txt
+      - name: Install Chromium
+        run: python -m playwright install --with-deps chromium
+      - name: Scrape fresh live records
+        run: >-
+          python -m property_tracker.scraper
+          --mode full
+          --counties "${{ inputs.counties }}"
+          --max-pages "${{ inputs.max_pages }}"
+      - name: Audit all stored records
+        run: python -m property_tracker.data_maintenance audit
+      - name: Remove invalid and legacy rows after successful scrape
+        if: ${{ inputs.remove_legacy }}
+        run: >-
+          python -m property_tracker.data_maintenance cleanup
+          --counties "${{ inputs.counties }}"
+          --remove-legacy

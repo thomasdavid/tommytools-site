@@ -163,7 +163,6 @@ def upsert_sale(session: Session, listing: Listing) -> bool:
         listing.sale_date, sold, asking, listing.address
     )
 
-    # Never let a legacy Sheet import overwrite a valid live Daft record.
     if (
         existing is not None
         and existing.source_kind == "daft_live"
@@ -172,7 +171,6 @@ def upsert_sale(session: Session, listing: Listing) -> bool:
     ):
         return False
 
-    # A temporary bad response should not downgrade an already-valid live row.
     if (
         existing is not None
         and existing.quality_status == "valid"
@@ -328,8 +326,11 @@ def run_scrape(
                                     if quality_status != "valid":
                                         run.errors += 1
                                         LOGGER.warning(
-                                            "Quarantining %s: %s", listing.detail_url, quality_notes
+                                            "Rejected malformed listing %s: %s",
+                                            listing.detail_url,
+                                            quality_notes,
                                         )
+                                        continue
                                     if upsert_sale(session, listing):
                                         page_inserted += 1
                                     else:

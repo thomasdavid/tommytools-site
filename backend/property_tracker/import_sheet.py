@@ -78,6 +78,7 @@ def import_rows(csv_text: str) -> tuple[int, int]:
                 size_sqm=optional_float(row.get("size_sqm")),
                 address=address,
                 county=county,
+                source_kind="sheet_import",
             )
             if upsert_sale(session, listing):
                 inserted += 1
@@ -90,7 +91,10 @@ def import_rows(csv_text: str) -> tuple[int, int]:
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Import the existing Raw Google Sheet")
     parser.add_argument("--csv", help="Local CSV file; otherwise the Google GViz CSV URL is used")
-    parser.add_argument("--sheet-id", default=os.getenv("GOOGLE_SHEET_ID", "1teB5wZq7-SiBlohTapD-etsHpJcvak3st_dZVIKUMDw"))
+    parser.add_argument(
+        "--sheet-id",
+        default=os.getenv("GOOGLE_SHEET_ID", "1teB5wZq7-SiBlohTapD-etsHpJcvak3st_dZVIKUMDw"),
+    )
     parser.add_argument("--sheet-name", default=os.getenv("GOOGLE_SHEET_NAME", "Raw"))
     return parser.parse_args()
 

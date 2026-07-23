@@ -18,6 +18,11 @@ on:
         required: true
         default: false
         type: boolean
+      min_valid_per_county:
+        description: Minimum fresh valid rows required per county before cleanup
+        required: true
+        default: "5"
+        type: string
 
 concurrency:
   group: dublin-property-database-write
@@ -32,7 +37,6 @@ jobs:
       DATABASE_URL: ${{ secrets.PROPERTY_DATABASE_URL }}
       SCRAPE_START_YEAR: "2025"
       SCRAPE_DELAY_SECONDS: "0.6"
-      DETAIL_DELAY_SECONDS: "0.35"
       LOG_LEVEL: INFO
     steps:
       - uses: actions/checkout@v4
@@ -43,11 +47,9 @@ jobs:
           cache-dependency-path: backend/requirements.txt
       - name: Install Python dependencies
         run: pip install -r backend/requirements.txt
-      - name: Install Chromium
-        run: python -m playwright install --with-deps chromium
-      - name: Scrape fresh live records
+      - name: Scrape fresh server-rendered sold cards
         run: >-
-          python -m property_tracker.scraper
+          python -m property_tracker.http_scraper
           --mode full
           --counties "${{ inputs.counties }}"
           --max-pages "${{ inputs.max_pages }}"
@@ -59,3 +61,4 @@ jobs:
           python -m property_tracker.data_maintenance cleanup
           --counties "${{ inputs.counties }}"
           --remove-legacy
+          --min-valid-per-county "${{ inputs.min_valid_per_county }}"

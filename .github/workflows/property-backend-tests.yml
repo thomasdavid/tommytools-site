@@ -29,4 +29,17 @@ jobs:
         env:
           PYTHONPATH: backend
           DATABASE_URL: sqlite:///./test-property-tracker.db
-        run: pytest -q backend/tests
+        shell: bash
+        run: |
+          set +e
+          pytest -q backend/tests --tb=short > property-test-output.txt 2>&1
+          STATUS=$?
+          cat property-test-output.txt
+          exit $STATUS
+      - name: Upload test output
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: property-test-output
+          path: property-test-output.txt
+          if-no-files-found: ignore

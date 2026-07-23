@@ -14,7 +14,7 @@ def looks_like_slug_address(value: str | None) -> bool:
         return False
     hyphens = text.count("-")
     words = [part for part in text.split("-") if part]
-    return hyphens >= 3 and len(words) >= 5
+    return hyphens >= 3 and len(words) >= 4
 
 
 def human_address(value: str | None) -> bool:

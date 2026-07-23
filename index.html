@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="description" content="Tommy Tools — bespoke web apps for data visualisation, sprinting, rugby and synthesizers.">
+<meta name="description" content="Tommy Tools — bespoke web apps for data visualisation, language learning, sprinting, rugby and synthesizers.">
 <link rel="icon" type="image/png" href="/611e7a94-79a0-4794-a9b9-d9aaa719858f.png">
 <link rel="shortcut icon" type="image/png" href="/611e7a94-79a0-4794-a9b9-d9aaa719858f.png">
 <link rel="apple-touch-icon" href="/611e7a94-79a0-4794-a9b9-d9aaa719858f.png">
@@ -18,6 +18,8 @@
   --white:#fff;
   --dataviz:#b08a57;
   --dataviz-soft:#eadfce;
+  --language:#437b68;
+  --language-soft:#dcebe5;
   --sports:#19324d;
   --sports-soft:#dbe4ec;
   --music:#a87988;
@@ -34,12 +36,12 @@ body{margin:0;background:#f4f7f8;color:var(--ink);font-family:Inter,system-ui,-a
 .hero-copy{min-width:0}
 .hero-visual{display:flex;align-items:center;justify-content:center;min-height:264px;overflow:visible}
 .hero-visual img{display:block;width:120%;max-width:120%;max-height:276px;object-fit:contain;opacity:.48;filter:grayscale(100%);mix-blend-mode:multiply}
-.eyebrow{margin:0 0 8px;color:var(--accent);font-size:13px;font-weight:850;letter-spacing:.14em;text-transform:uppercase}
 .hero h1{margin:0;font-size:clamp(42px,6vw,76px);line-height:.98;letter-spacing:-.055em}
 .hero p{max-width:900px;margin:20px 0 0;color:var(--muted);font-size:18px;line-height:1.65}
 .grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:20px;padding:28px 0 64px}
 .card{--cat:#0e5b76;--cat-soft:#e5f1f4;min-height:340px;padding:26px;background:#fff;border:1px solid var(--line);border-radius:20px;display:flex;flex-direction:column;box-shadow:0 16px 42px rgba(24,43,54,.06);overflow:hidden;position:relative}
 .card.dataviz{--cat:var(--dataviz);--cat-soft:var(--dataviz-soft)}
+.card.language{--cat:var(--language);--cat-soft:var(--language-soft)}
 .card.sports{--cat:var(--sports);--cat-soft:var(--sports-soft)}
 .card.music{--cat:var(--music);--cat-soft:var(--music-soft)}
 .card:after{content:"";position:absolute;width:180px;height:180px;border-radius:50%;background:var(--cat-soft);right:-70px;bottom:-75px}
@@ -61,7 +63,7 @@ body{margin:0;background:#f4f7f8;color:var(--ink);font-family:Inter,system-ui,-a
 <header class="topbar"><div class="shell"><a class="brand" href="/" aria-label="Tommy Tools home"><span class="mark">TT</span><span>Tommy Tools</span></a></div></header>
 <main class="shell">
 <section class="hero">
-  <div class="hero-copy"><p class="eyebrow">Projects</p><h1>Tools with a purpose.</h1><p>A collection of bespoke web apps reflecting my interests in data visualisation, sprinting, rugby and synthesizers.</p></div>
+  <div class="hero-copy"><h1>Tools with a purpose.</h1><p>A collection of bespoke web apps reflecting my interests in data visualisation, language learning, sprinting, rugby and synthesizers.</p></div>
   <div class="hero-visual"><img src="/611e7a94-79a0-4794-a9b9-d9aaa719858f.png" alt="Tommy Tools illustration"></div>
 </section>
 <section class="grid" aria-label="Available applications">
@@ -69,6 +71,7 @@ body{margin:0;background:#f4f7f8;color:var(--ink);font-family:Inter,system-ui,-a
 <article class="card dataviz"><div class="card-top"><span class="category">Dataviz</span></div><div class="card-body"><h2>Trust Explorer</h2><p>Compare trust indicators across European countries with an interactive beeswarm chart, country highlighting and year selection.</p></div><div class="card-footer"><a class="button" href="/projects/trust-explorer/">Open project</a></div></article>
 <article class="card dataviz"><div class="card-top"><span class="category">Dataviz</span></div><div class="card-body"><h2>Minimum Wage Map</h2><p>Explore and compare statutory minimum wages across Europe with an interactive map and country-level detail.</p></div><div class="card-footer"><a class="button" href="/projects/minimum-wage-map/">Open project</a></div></article>
 <article class="card dataviz"><div class="card-top"><span class="category">Dataviz</span></div><div class="card-body"><h2>Property Sale Tracker</h2><p>Compare achieved and asking prices across Dublin, Carlow, Kildare and Wicklow by county, local area, price band and property type.</p></div><div class="card-footer"><a class="button" href="/projects/dublin-property-tracker/">Open project</a></div></article>
+<article class="card language"><div class="card-top"><span class="category">Language</span></div><div class="card-body"><h2>Dutch Flash Cards</h2><p>Practise the 1,000 most common Dutch words with flash cards, example sentences, audio and quiz modes.</p></div><div class="card-footer"><a class="button" href="/projects/dutch-flash-cards/">Open project</a></div></article>
 <article class="card sports"><div class="card-top"><span class="category">Sports</span></div><div class="card-body"><h2>Garmin Sprint Calculator</h2><p>Upload a Garmin FIT or ZIP file, detect sprint efforts, inspect speed curves and estimate 100 metre performance.</p></div><div class="card-footer"><a class="button" href="https://garmin.tommytools.dev/">Open project</a></div></article>
 <article class="card sports"><div class="card-top"><span class="category">Sports</span></div><div class="card-body"><h2>Sprint Performance Calculator</h2><p>Age-grade and wind-correct sprint marks, calculate combined-event points and compare equivalent sprint performances.</p></div><div class="card-footer"><a class="button" href="/projects/sprint-performance-calculator/">Open project</a></div></article>
 <article class="card sports"><div class="card-top"><span class="category">Sports</span></div><div class="card-body"><h2>Rugby Forward Pass Calculator</h2><p>Explore how running speed, pass direction, distance, spin and wind affect the ball’s path and pass legality.</p></div><div class="card-footer"><a class="button" href="/projects/rugby-forward-pass-calculator/">Open project</a></div></article>

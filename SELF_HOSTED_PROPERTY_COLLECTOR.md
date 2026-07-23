@@ -38,14 +38,41 @@ property-scraper
 
 The machine must be switched on and connected to the internet when a scheduled job is due.
 
+## Install Python once
+
+Do not rely on `actions/setup-python` on this runner. Install **Python 3.12 x64 system-wide** using the official Windows installer.
+
+During installation:
+
+- choose **Customize installation**;
+- enable **Install for all users**;
+- enable **Add Python to environment variables**;
+- keep the default all-users path, normally `C:\Program Files\Python312`;
+- include `pip` and the Python launcher.
+
+After installation, restart the runner service from Administrator PowerShell:
+
+```powershell
+Get-Service "actions.runner.*" | Restart-Service
+```
+
+Confirm the system installation:
+
+```powershell
+& "C:\Program Files\Python312\python.exe" --version
+& "C:\Program Files\Python312\python.exe" -m pip --version
+```
+
+The workflows locate Python in `C:\Program Files\Python312`, `C:\Python312`, the runner account's local Python folder, or the service account's `PATH`. They fail with a clear message if Python 3.12 cannot be found.
+
 ## Machine requirements
 
 - Windows 10 or Windows 11 x64
-- Python 3.12 available to the runner service account
+- Python 3.12 x64 installed for all users
 - Enough disk space for the GitHub runner checkout and Playwright Chromium
 - Access to the Render PostgreSQL external hostname
 
-The workflow installs Python dependencies and Playwright Chromium before each run, so no project checkout needs to be maintained manually.
+The workflow installs project dependencies and Playwright Chromium before each run, so no project checkout needs to be maintained manually.
 
 ## Repository secret
 

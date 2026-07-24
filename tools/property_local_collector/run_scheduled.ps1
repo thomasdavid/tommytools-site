@@ -79,23 +79,26 @@ try {
         throw "Internet connectivity check failed. Task Scheduler will retry later."
     }
 
+    # The collector now visits individual area pages. Keep the page depth lower
+    # than the old county-wide collector to avoid unnecessary requests.
     $maxPages = if ([double]::IsPositiveInfinity($hoursSinceSuccess) -or $hoursSinceSuccess -ge 168) {
-        10
+        3
     }
     elseif ($hoursSinceSuccess -ge 72) {
-        5
-    }
-    else {
         2
     }
+    else {
+        1
+    }
 
-    Write-Log ("Starting incremental collection; hours since success={0:N1}, max pages per county={1}." -f $hoursSinceSuccess, $maxPages)
+    Write-Log ("Starting incremental collection; hours since success={0:N1}, max pages per area={1}." -f $hoursSinceSuccess, $maxPages)
 
     $arguments = @(
         "collector.py",
         "--mode", "incremental",
         "--counties", "dublin,carlow,kildare,wicklow",
-        "--max-pages", "$maxPages"
+        "--max-pages", "$maxPages",
+        "--no-cache"
     )
 
     $collectorOutput = & $python @arguments 2>&1
@@ -109,7 +112,7 @@ try {
     $newState = [ordered]@{
         last_success_utc = [DateTimeOffset]::UtcNow.ToString("o")
         last_success_local = (Get-Date).ToString("o")
-        max_pages = $maxPages
+        max_pages_per_area = $maxPages
         status = "success"
     }
     $newState | ConvertTo-Json | Set-Content -Path $statePath -Encoding UTF8

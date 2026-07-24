@@ -2,7 +2,7 @@ name: Sync property Google Sheet
 
 on:
   schedule:
-    - cron: "15 6 * * *"
+    - cron: "15 */3 * * *"
   workflow_dispatch:
     inputs:
       minimum_valid_rows:

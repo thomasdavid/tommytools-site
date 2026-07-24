@@ -35,69 +35,88 @@ const leagueEmpty = document.getElementById('leagueEmpty');
 
 const VIEW_W = 1200;
 const VIEW_H = 720;
-const TILE_W = 72;
-const TILE_H = 36;
+const TILE_W = 62;
+const TILE_H = 31;
 const ORIGIN_X = 600;
-const ORIGIN_Y = 82;
-const COLS = 16;
-const ROWS = 12;
+const ORIGIN_Y = 78;
+const COLS = 19;
+const ROWS = 14;
 const ROUND_SECONDS = 60;
 const MAX_LIVES = 3;
-const LEAGUE_KEY = 'herbert-house-hunt-league-v2';
-const OLD_BEST_KEY = 'herber-house-hunt-best-v1';
+const LEAGUE_KEY = 'herbert-house-hunt-league-v3';
+const OLD_LEAGUE_KEYS = ['herbert-house-hunt-league-v2','herber-house-hunt-best-v1'];
 const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 const palettes = {
-  sofa:{top:'#527f83',x:'#365f65',y:'#2c5056',line:'#24464b'},
-  wood:{top:'#c99458',x:'#9c673c',y:'#825330',line:'#6d4529'},
-  darkWood:{top:'#795640',x:'#5f4131',y:'#493225',line:'#3b281f'},
-  kitchen:{top:'#d8d8cc',x:'#a8aaa2',y:'#8e918a',line:'#74776f'},
-  shelf:{top:'#916b4c',x:'#735038',y:'#5e402e',line:'#493123'},
-  tower:{top:'#d3a86e',x:'#a67842',y:'#865d32',line:'#6f4c2b'},
+  sofa:{top:'#d8d4cd',x:'#aaa69f',y:'#918e88',line:'#77736e'},
+  wood:{top:'#aa7245',x:'#805132',y:'#674027',line:'#4d2f1f'},
+  darkWood:{top:'#24282a',x:'#171a1c',y:'#0f1112',line:'#070809'},
+  kitchen:{top:'#eee9de',x:'#c8c1b5',y:'#aaa399',line:'#88827a'},
+  counter:{top:'#252829',x:'#17191a',y:'#101112',line:'#080909'},
+  shelf:{top:'#25292b',x:'#171a1c',y:'#101214',line:'#070809'},
+  tower:{top:'#c69a64',x:'#966c3e',y:'#78532f',line:'#604225'},
   bedroom:{top:'#c9aa91',x:'#9e806c',y:'#876b5b',line:'#705748'},
   bathroom:{top:'#cfdadc',x:'#9eafb2',y:'#87999d',line:'#6f8185'},
-  wall:{top:'#f3eadc',x:'#c8baa6',y:'#b9aa96',line:'#988a79'}
+  wall:{top:'#f3eee4',x:'#d3c8b9',y:'#c1b4a4',line:'#978a7a'},
+  black:{top:'#34393c',x:'#22272a',y:'#171b1d',line:'#0e1112'}
 };
 
+// The main room is deliberately a little larger than the real apartment so the
+// chase routes remain readable, but the relative placement follows the photos:
+// kitchen at the back-left, divider shelf in the centre, sofa/TV in the living
+// zone and the round table beside the long window wall.
 const wallRects = [
-  {id:'mainHallNorth',x:9.92,y:0,w:.16,h:4.15,height:66},
-  {id:'mainHallSouth',x:9.92,y:5.48,w:.16,h:6.52,height:66},
-  {id:'hallEastNorth',x:11.92,y:0,w:.16,h:2.20,height:66},
-  {id:'hallEastMiddle',x:11.92,y:3.75,w:.16,h:4.35,height:66},
-  {id:'hallEastSouth',x:11.92,y:9.46,w:.16,h:2.54,height:66},
-  {id:'bedBathWall',x:12,y:5.92,w:4,h:.16,height:66}
+  {id:'mainHallNorth',x:11.92,y:0,w:.18,h:9.02,height:70},
+  {id:'mainHallSouth',x:11.92,y:10.62,w:.18,h:3.38,height:70},
+  {id:'hallEastNorth',x:13.92,y:0,w:.18,h:2.20,height:70},
+  {id:'hallEastMiddle',x:13.92,y:3.82,w:.18,h:5.18,height:70},
+  {id:'hallEastSouth',x:13.92,y:10.62,w:.18,h:3.38,height:70},
+  {id:'bedBathWall',x:14,y:6.92,w:5,h:.18,height:70}
 ];
 
 const obstacles = [
-  {id:'sofa',type:'sofa',x:.95,y:.95,w:3.25,h:1.02,height:35,palette:palettes.sofa,climbable:true},
-  {id:'coffee',type:'table',x:1.75,y:2.70,w:1.95,h:1.05,height:21,palette:palettes.wood,climbable:true},
-  {id:'shelf',type:'shelf',x:.30,y:4.25,w:.72,h:2.35,height:72,palette:palettes.shelf},
-  {id:'catTower',type:'tower',x:4.72,y:.55,w:.82,h:.82,height:69,palette:palettes.tower,climbable:true},
-  {id:'dining',type:'dining',x:6.45,y:1.15,w:2.28,h:1.90,height:33,palette:palettes.darkWood,climbable:true},
-  {id:'island',type:'island',x:6.30,y:7.22,w:2.92,h:1.12,height:47,palette:palettes.kitchen,climbable:true},
-  {id:'cabinet',type:'cabinet',x:8.92,y:8.55,w:.72,h:2.52,height:66,palette:palettes.kitchen},
-  {id:'plant',type:'plant',x:.72,y:10.18,w:.72,h:.72,height:55,palette:palettes.wood},
-  {id:'hallConsole',type:'console',x:10.18,y:6.12,w:.48,h:1.34,height:34,palette:palettes.wood,climbable:true},
-  {id:'bed',type:'bed',x:12.82,y:.48,w:2.40,h:2.18,height:29,palette:palettes.bedroom,climbable:true},
-  {id:'nightstand',type:'table',x:13.62,y:3.52,w:.70,h:.70,height:25,palette:palettes.wood,climbable:true},
-  {id:'wardrobe',type:'wardrobe',x:15.02,y:3.58,w:.64,h:1.76,height:74,palette:palettes.bedroom},
-  {id:'bath',type:'bath',x:12.82,y:6.58,w:2.28,h:1.38,height:35,palette:palettes.bathroom,climbable:true},
-  {id:'vanity',type:'vanity',x:15.02,y:6.62,w:.64,h:1.86,height:47,palette:palettes.bathroom,climbable:true},
-  {id:'toilet',type:'toilet',x:13.42,y:9.25,w:.75,h:.92,height:39,palette:palettes.bathroom},
-  {id:'laundry',type:'cabinet',x:15.02,y:9.55,w:.66,h:1.72,height:58,palette:palettes.bathroom}
+  // Real L-shaped kitchen. Both counter runs can be jumped onto.
+  {id:'kitchenBack',type:'kitchenBack',x:.72,y:.48,w:5.62,h:.88,height:45,palette:palettes.kitchen,climbable:true},
+  {id:'island',type:'kitchenReturn',x:5.48,y:.48,w:1.05,h:3.20,height:45,palette:palettes.kitchen,climbable:true},
+  {id:'kitchenOpen',type:'kitchenOpen',x:.20,y:.52,w:.48,h:1.72,height:74,palette:palettes.kitchen},
+  {id:'kitchenBin',type:'bin',x:.50,y:2.24,w:.64,h:.64,height:39,palette:palettes.black},
+
+  // Central black shelving divider and the exercise equipment seen below it.
+  {id:'shelf',type:'shelf',x:6.18,y:4.05,w:.78,h:4.05,height:78,palette:palettes.shelf,climbable:true},
+  {id:'gymRack',type:'gymRack',x:4.95,y:8.28,w:2.05,h:.62,height:22,palette:palettes.black},
+  {id:'catTower',type:'tower',x:4.20,y:9.15,w:.70,h:.70,height:55,palette:palettes.tower,climbable:true},
+  {id:'catCube',type:'catCube',x:5.25,y:9.28,w:.82,h:.82,height:42,palette:palettes.black,climbable:true},
+
+  // Living and dining zone.
+  {id:'sofa',type:'sofa',x:8.25,y:4.00,w:3.15,h:1.16,height:40,palette:palettes.sofa,climbable:true},
+  {id:'tvUnit',type:'tvUnit',x:8.00,y:.48,w:3.45,h:.68,height:27,palette:palettes.wood},
+  {id:'dining',type:'dining',x:8.45,y:8.65,w:2.20,h:2.20,height:34,palette:palettes.darkWood,climbable:true},
+  {id:'chairA',type:'chair',x:8.10,y:7.78,w:.66,h:.66,height:25,palette:palettes.black},
+  {id:'chairB',type:'chair',x:9.10,y:11.08,w:.66,h:.66,height:25,palette:palettes.black},
+  {id:'chairC',type:'chair',x:10.70,y:7.70,w:.66,h:.66,height:25,palette:palettes.black},
+  {id:'keyboardDesk',type:'keyboard',x:.72,y:10.70,w:2.35,h:.68,height:30,palette:palettes.black},
+  {id:'tripodLamp',type:'tripod',x:7.25,y:1.18,w:.55,h:.55,height:66,palette:palettes.black},
+  {id:'plant',type:'plant',x:11.05,y:1.40,w:.66,h:.66,height:53,palette:palettes.wood},
+
+  // Hallway, bedroom and bathroom remain connected to the main room.
+  {id:'hallConsole',type:'console',x:12.18,y:5.05,w:.42,h:1.18,height:32,palette:palettes.wood,climbable:true},
+  {id:'bed',type:'bed',x:15.42,y:.55,w:3.05,h:2.62,height:30,palette:palettes.bedroom,climbable:true},
+  {id:'nightstand',type:'nightstand',x:18.18,y:3.70,w:.58,h:.58,height:24,palette:palettes.wood,climbable:true},
+  {id:'wardrobe',type:'wardrobe',x:14.42,y:5.12,w:1.00,h:1.55,height:74,palette:palettes.bedroom},
+  {id:'bath',type:'bath',x:14.55,y:7.62,w:2.95,h:1.45,height:35,palette:palettes.bathroom,climbable:true},
+  {id:'vanity',type:'vanity',x:18.05,y:7.82,w:.66,h:1.70,height:47,palette:palettes.bathroom,climbable:true},
+  {id:'toilet',type:'toilet',x:14.92,y:11.28,w:.74,h:.90,height:39,palette:palettes.bathroom},
+  {id:'laundry',type:'cabinet',x:17.92,y:11.02,w:.76,h:2.12,height:59,palette:palettes.bathroom}
 ];
 
 const vacuumEntrances = [
-  {x:1.90,y:11.20},
-  {x:8.15,y:11.25},
-  {x:10.86,y:.62},
-  {x:14.40,y:5.35},
-  {x:14.50,y:11.20}
+  {x:1.55,y:13.15},{x:10.95,y:12.70},{x:12.88,y:.62},{x:13.10,y:9.78},{x:17.15,y:4.65},{x:16.50,y:13.18}
 ];
 
 const treatSeeds = [
-  {x:1.45,y:7.45},{x:3.90,y:4.65},{x:5.35,y:9.70},{x:7.85,y:4.72},
-  {x:10.82,y:2.72},{x:10.82,y:8.62},{x:13.62,y:4.45},{x:14.52,y:10.55}
+  {x:1.55,y:4.28},{x:3.62,y:8.05},{x:5.15,y:11.75},{x:7.55,y:2.92},
+  {x:8.67,y:7.57},{x:10.88,y:3.10},{x:12.82,y:7.02},{x:15.42,y:4.32},
+  {x:17.35,y:5.55},{x:15.92,y:10.20},{x:17.20,y:12.72},{x:10.78,y:12.05}
 ];
 
 const keys = new Set();
@@ -116,18 +135,18 @@ let lives = MAX_LIVES;
 let timeLeft = ROUND_SECONDS;
 let combo = 0;
 let comboTimer = 0;
+let bestScore = 0;
 let shake = 0;
 let messageTimer = 0;
 let entitiesReady = false;
 let runSaved = false;
 let currentRank = null;
 let league = loadLeague();
-let bestScore = league.length ? league[0].score : 0;
+bestScore = league.length ? league[0].score : 0;
 
 const cat = {
   x:2.10,y:9.25,radius:.28,
-  facing:{x:1,y:-1},
-  vx:0,vy:0,
+  facing:{x:1,y:-1},vx:0,vy:0,
   pounceTimer:0,pounceCooldown:0,pounceDir:{x:1,y:-1},
   jumpTimer:0,jumpDuration:.62,jumpCooldown:0,jumpDir:{x:1,y:-1},
   jumpStartZ:0,jumpHeight:0,surfaceId:null,
@@ -135,11 +154,9 @@ const cat = {
 };
 
 const vacuum = {
-  active:false,x:10.86,y:.62,radius:.38,
-  facing:{x:-1,y:1},
-  state:'hidden',stateTimer:0,spawnTimer:4,
-  path:[],pathTimer:0,spin:0,stuckTimer:0,
-  lastX:10.86,lastY:.62,retreatTarget:null
+  active:false,x:12.88,y:.62,radius:.38,
+  facing:{x:-1,y:1},state:'hidden',stateTimer:0,spawnTimer:4,
+  path:[],pathTimer:0,spin:0,stuckTimer:0,lastX:12.88,lastY:.62,retreatTarget:null
 };
 
 let flies = [];
@@ -149,10 +166,9 @@ let floaters = [];
 let herbertSprites = null;
 
 function sanitizeLeagueEntry(entry){
-  const scoreValue = Math.max(0,Number.parseInt(entry?.score,10)||0);
   return {
     id:String(entry?.id||`${Date.now()}-${Math.random()}`),
-    score:scoreValue,
+    score:Math.max(0,Number.parseInt(entry?.score,10)||0),
     flies:Math.max(0,Number.parseInt(entry?.flies,10)||0),
     treats:Math.max(0,Number.parseInt(entry?.treats,10)||0),
     at:String(entry?.at||new Date().toISOString())
@@ -162,21 +178,25 @@ function sanitizeLeagueEntry(entry){
 function loadLeague(){
   let entries=[];
   try{
-    const parsed=JSON.parse(localStorage.getItem(LEAGUE_KEY)||'[]');
-    if(Array.isArray(parsed))entries=parsed.map(sanitizeLeagueEntry).filter(entry=>entry.score>0);
+    const current=JSON.parse(localStorage.getItem(LEAGUE_KEY)||'[]');
+    if(Array.isArray(current))entries=current.map(sanitizeLeagueEntry);
   }catch{}
   if(entries.length===0){
     try{
-      const oldBest=Math.max(0,Number.parseInt(localStorage.getItem(OLD_BEST_KEY)||'0',10)||0);
+      const previous=JSON.parse(localStorage.getItem(OLD_LEAGUE_KEYS[0])||'[]');
+      if(Array.isArray(previous))entries=previous.map(sanitizeLeagueEntry);
+    }catch{}
+  }
+  if(entries.length===0){
+    try{
+      const oldBest=Math.max(0,Number.parseInt(localStorage.getItem(OLD_LEAGUE_KEYS[1])||'0',10)||0);
       if(oldBest>0)entries.push({id:'legacy-best',score:oldBest,flies:0,treats:0,at:new Date().toISOString()});
     }catch{}
   }
-  return entries.sort((a,b)=>b.score-a.score).slice(0,10);
+  return entries.filter(entry=>entry.score>0).sort((a,b)=>b.score-a.score).slice(0,10);
 }
 
-function saveLeague(){
-  try{localStorage.setItem(LEAGUE_KEY,JSON.stringify(league))}catch{}
-}
+function saveLeague(){try{localStorage.setItem(LEAGUE_KEY,JSON.stringify(league))}catch{}}
 
 function recordLeagueScore(){
   if(runSaved)return currentRank;
@@ -184,11 +204,7 @@ function recordLeagueScore(){
   league=[...league,entry].sort((a,b)=>b.score-a.score||String(a.at).localeCompare(String(b.at))).slice(0,10);
   currentRank=league.findIndex(item=>item.id===entry.id)+1;
   if(currentRank===0)currentRank=null;
-  runSaved=true;
-  bestScore=league.length?league[0].score:0;
-  saveLeague();
-  renderLeague();
-  return currentRank;
+  runSaved=true;bestScore=league.length?league[0].score:0;saveLeague();renderLeague();return currentRank;
 }
 
 function formatLeagueDate(value){
@@ -197,102 +213,66 @@ function formatLeagueDate(value){
 
 function renderLeague(){
   if(!leagueRows)return;
-  leagueRows.textContent='';
-  leagueEmpty.hidden=league.length>0;
+  leagueRows.textContent='';leagueEmpty.hidden=league.length>0;
   league.forEach((entry,index)=>{
-    const row=document.createElement('tr');
-    if(index===0)row.className='league-leader';
+    const row=document.createElement('tr');if(index===0)row.className='league-leader';
     row.innerHTML=`<td><span class="rank-badge">${index+1}</span></td><td><strong>${entry.score.toLocaleString()}</strong></td><td>${entry.flies}</td><td>${entry.treats}</td><td>${formatLeagueDate(entry.at)}</td>`;
     leagueRows.appendChild(row);
   });
   pageBest.textContent=bestScore.toLocaleString();
 }
 
-function iso(x,y,z=0){
-  return {x:ORIGIN_X+(x-y)*TILE_W/2,y:ORIGIN_Y+(x+y)*TILE_H/2-z};
-}
-
+function iso(x,y,z=0){return {x:ORIGIN_X+(x-y)*TILE_W/2,y:ORIGIN_Y+(x+y)*TILE_H/2-z}}
 function clamp(value,min,max){return Math.max(min,Math.min(max,value))}
 function lerp(a,b,t){return a+(b-a)*t}
 function dist(a,b){return Math.hypot(a.x-b.x,a.y-b.y)}
-function normalize(x,y,fallback={x:1,y:0}){
-  const length=Math.hypot(x,y);
-  return length>0.0001?{x:x/length,y:y/length}:{x:fallback.x,y:fallback.y};
-}
+function normalize(x,y,fallback={x:1,y:0}){const length=Math.hypot(x,y);return length>.0001?{x:x/length,y:y/length}:{x:fallback.x,y:fallback.y}}
 function randomBetween(min,max){return min+Math.random()*(max-min)}
 
 function polygon(points,fill,stroke=null,lineWidth=1){
-  ctx.beginPath();
-  ctx.moveTo(points[0].x,points[0].y);
-  for(let i=1;i<points.length;i++)ctx.lineTo(points[i].x,points[i].y);
-  ctx.closePath();
-  if(fill){ctx.fillStyle=fill;ctx.fill()}
-  if(stroke){ctx.strokeStyle=stroke;ctx.lineWidth=lineWidth;ctx.stroke()}
+  ctx.beginPath();ctx.moveTo(points[0].x,points[0].y);for(let i=1;i<points.length;i++)ctx.lineTo(points[i].x,points[i].y);ctx.closePath();
+  if(fill){ctx.fillStyle=fill;ctx.fill()}if(stroke){ctx.strokeStyle=stroke;ctx.lineWidth=lineWidth;ctx.stroke()}
 }
 
-function rectCorners(rect,z=0){
-  return [iso(rect.x,rect.y,z),iso(rect.x+rect.w,rect.y,z),iso(rect.x+rect.w,rect.y+rect.h,z),iso(rect.x,rect.y+rect.h,z)];
-}
+function rectCorners(rect,z=0){return [iso(rect.x,rect.y,z),iso(rect.x+rect.w,rect.y,z),iso(rect.x+rect.w,rect.y+rect.h,z),iso(rect.x,rect.y+rect.h,z)]}
 
 function drawIsoBox(rect,height,palette){
-  const base=rectCorners(rect,0);
-  const top=rectCorners(rect,height);
+  const base=rectCorners(rect,0),top=rectCorners(rect,height);
   polygon([base[1],base[2],top[2],top[1]],palette.x,palette.line,.8);
   polygon([base[3],base[2],top[2],top[3]],palette.y,palette.line,.8);
   polygon(top,palette.top,palette.line,1);
 }
 
 function roomAt(x,y){
-  if(x>=12&&y<6)return 'bedroom';
-  if(x>=12&&y>=6)return 'bathroom';
-  if(x>=10)return 'hallway';
-  if(x>=6&&y>=6)return 'kitchen';
-  if(x>=6)return 'dining';
+  if(x>=14&&y<7)return 'bedroom';
+  if(x>=14)return 'bathroom';
+  if(x>=12)return 'hallway';
+  if(x<6.8&&y<4.1)return 'kitchen';
+  if(x>=8&&y>=7.2)return 'dining';
   return 'living';
 }
 
 function floorColour(x,y){
-  const alternate=(x+y)%2===0;
-  const room=roomAt(x,y);
-  if(room==='bedroom')return alternate?'#d9c3b4':'#cfb5a5';
-  if(room==='bathroom')return alternate?'#d5e0e1':'#c8d5d7';
-  if(room==='hallway')return alternate?'#b88d62':'#ae8158';
-  if(room==='kitchen')return alternate?'#cad5d2':'#bfcdca';
-  if(room==='dining')return alternate?'#d8c39f':'#ceb78e';
-  return alternate?'#cba679':'#c19a6c';
+  const alternate=(x+y)%2===0,room=roomAt(x+.5,y+.5);
+  if(room==='bedroom')return alternate?'#c9a27b':'#bd936b';
+  if(room==='bathroom')return alternate?'#ced9da':'#c2ced0';
+  if(room==='hallway')return alternate?'#d2cabd':'#c8bfb1';
+  return alternate?'#ded9cf':'#d5d0c5';
 }
 
 function drawFloor(){
-  const bg=ctx.createLinearGradient(0,0,0,VIEW_H);
-  bg.addColorStop(0,'#21495f');
-  bg.addColorStop(1,'#102b3a');
-  ctx.fillStyle=bg;
-  ctx.fillRect(-30,-30,VIEW_W+60,VIEW_H+60);
-
-  for(let y=0;y<ROWS;y++){
-    for(let x=0;x<COLS;x++){
-      const points=[iso(x,y),iso(x+1,y),iso(x+1,y+1),iso(x,y+1)];
-      polygon(points,floorColour(x,y),'rgba(72,68,58,.16)',.65);
-    }
-  }
-
-  const southA=iso(0,ROWS),southB=iso(COLS,ROWS),southAd={x:southA.x,y:southA.y+16},southBd={x:southB.x,y:southB.y+16};
-  polygon([southA,southB,southBd,southAd],'#7c634d','#5c4a3c',1);
-  const eastA=iso(COLS,0),eastB=iso(COLS,ROWS),eastAd={x:eastA.x,y:eastA.y+16},eastBd={x:eastB.x,y:eastB.y+16};
-  polygon([eastA,eastB,eastBd,eastAd],'#6e5947','#554538',1);
-
-  drawRug({x:1.12,y:2.16,w:3.92,h:2.34},'#d86b49','#f1c784');
-  drawRug({x:6.22,y:.72,w:3.05,h:3.18},'#567d78','#d6e0d4');
-  drawRug({x:10.25,y:.85,w:1.32,h:9.90},'#7d5671','#d6b4ca');
-  drawRug({x:12.48,y:3.10,w:2.28,h:1.34},'#8f6a84','#dfbfd3');
-  drawRug({x:13.00,y:8.18,w:1.62,h:.86},'#6b98a2','#d7ecef');
-
+  const bg=ctx.createLinearGradient(0,0,0,VIEW_H);bg.addColorStop(0,'#21495f');bg.addColorStop(1,'#102b3a');ctx.fillStyle=bg;ctx.fillRect(-30,-30,VIEW_W+60,VIEW_H+60);
+  for(let y=0;y<ROWS;y++)for(let x=0;x<COLS;x++)polygon([iso(x,y),iso(x+1,y),iso(x+1,y+1),iso(x,y+1)],floorColour(x,y),'rgba(82,76,67,.17)',.62);
+  const southA=iso(0,ROWS),southB=iso(COLS,ROWS),southAd={x:southA.x,y:southA.y+15},southBd={x:southB.x,y:southB.y+15};polygon([southA,southB,southBd,southAd],'#776354','#55473d',1);
+  const eastA=iso(COLS,0),eastB=iso(COLS,ROWS),eastAd={x:eastA.x,y:eastA.y+15},eastBd={x:eastB.x,y:eastB.y+15};polygon([eastA,eastB,eastBd,eastAd],'#6c5a4d','#50443b',1);
+  drawRug({x:6.82,y:3.52,w:5.05,h:4.58},'#a69250','#d3bd72');
+  drawRug({x:12.22,y:.72,w:1.40,h:12.35},'#8a6b61','#d0b2a7');
+  drawRug({x:14.52,y:3.55,w:3.45,h:2.05},'#8d6d61','#d7b9ac');
+  drawRug({x:14.72,y:10.20,w:2.90,h:1.55},'#72949a','#cfe1e3');
   drawFloorDetails();
 }
 
 function drawRug(rect,fill,accent){
-  const p=rectCorners(rect,1);
-  polygon(p,fill,'rgba(69,49,38,.25)',1);
-  const inner={x:rect.x+.16,y:rect.y+.16,w:rect.w-.32,h:rect.h-.32};
-  polygon(rectCorners(inner,1.6),'rgba(255,255,255,.08)',accent,1.3);
+  polygon(rectCorners(rect,1.2),fill,'rgba(69,49,38,.25)',1);
+  const inner={x:rect.x+.15,y:rect.y+.15,w:rect.w-.30,h:rect.h-.30};polygon(rectCorners(inner,1.8),'rgba(255,255,255,.07)',accent,1.15);
 }

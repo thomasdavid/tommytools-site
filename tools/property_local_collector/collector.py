@@ -11,7 +11,6 @@ import time
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Iterable
 from urllib.parse import urljoin
 
 import requests
@@ -20,41 +19,10 @@ from dotenv import load_dotenv
 from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 from playwright.sync_api import sync_playwright
 
-LOGGER = logging.getLogger("property-area-playwright-collector")
+LOGGER = logging.getLogger("property-county-playwright-collector")
 BASE_URL = "https://www.daft.ie"
-
-# Each request is one normal Daft area URL. There are no location= parameters
-# and no soldDate_from parameter.
-AREA_SOURCES: dict[str, list[str]] = {
-    "dublin": [
-        "dublin-city-centre-dublin",
-        "clontarf-dublin",
-        "swords-dublin",
-        "lucan-dublin",
-        "tallaght-dublin",
-        "blackrock-dublin",
-        "sandyford-dublin",
-        "dun-laoghaire-dublin",
-    ],
-    "carlow": [
-        "carlow-town-carlow",
-        "tullow-carlow",
-        "borris-carlow",
-        "muine-bheag-carlow",
-    ],
-    "kildare": [
-        "naas-kildare",
-        "newbridge-kildare",
-        "maynooth-kildare",
-        "athy-kildare",
-    ],
-    "wicklow": [
-        "bray-wicklow",
-        "greystones-wicklow",
-        "wicklow-town-wicklow",
-        "arklow-wicklow",
-    ],
-}
+CACHE_DIR = Path("cache_html")
+PROFILE_DIR = Path("browser_profile")
 
 COUNTY_LABELS = {
     "dublin": "Dublin",
@@ -62,9 +30,6 @@ COUNTY_LABELS = {
     "kildare": "Kildare",
     "wicklow": "Wicklow",
 }
-
-CACHE_DIR = Path("cache_html")
-PROFILE_DIR = Path("browser_profile")
 
 COLUMNS = [
     "scraped_at",
@@ -93,7 +58,7 @@ DUBLIN_AREAS = [
     "Churchtown", "Clonskeagh", "Donnybrook", "Booterstown", "Mount Merrion",
     "Clontarf", "Raheny", "Howth", "Malahide", "Swords", "Lucan", "Tallaght",
     "Castleknock", "Blanchardstown", "Clondalkin", "Drumcondra", "Phibsborough",
-    "Dublin City Centre",
+    "Dublin City Centre", "Harolds Cross", "Harold's Cross", "Blackglen Road",
 ]
 
 
@@ -150,32 +115,29 @@ def asking_band(value: int) -> str:
     return "1300k+"
 
 
-def area_label_from_slug(slug: str) -> str:
-    county_suffix = slug.rsplit("-", 1)[-1]
-    base = slug[: -(len(county_suffix) + 1)]
-    special = {
-        "dun-laoghaire": "Dún Laoghaire",
-        "dublin-city-centre": "Dublin City Centre",
-        "carlow-town": "Carlow Town",
-        "wicklow-town": "Wicklow Town",
-        "muine-bheag": "Muine Bheag",
-    }
-    return special.get(base, base.replace("-", " ").title())
-
-
-def infer_area(address: str, county: str, source_slug: str) -> str:
+def infer_area(address: str, county: str) -> str:
     if county == "Dublin":
         folded = address.casefold()
         for label in DUBLIN_AREAS:
             if label.casefold() in folded:
-                return "Dún Laoghaire" if label == "Dun Laoghaire" else label
+                if label == "Dun Laoghaire":
+                    return "Dún Laoghaire"
+                if label == "Harold's Cross":
+                    return "Harolds Cross"
+                return label
 
     parts = [clean_text(part) for part in address.split(",") if clean_text(part)]
-    county_cf = county.casefold()
     candidates: list[str] = []
+    county_folded = county.casefold()
+
     for part in parts[1:]:
-        folded = part.casefold().replace("county ", "").replace("co. ", "").replace("co ", "")
-        if folded == county_cf:
+        normalised = (
+            part.casefold()
+            .replace("county ", "")
+            .replace("co. ", "")
+            .replace("co ", "")
+        )
+        if normalised == county_folded:
             continue
         if re.fullmatch(r"Dublin\s+\d{1,2}[A-Z]?", part, re.I):
             continue
@@ -183,46 +145,71 @@ def infer_area(address: str, county: str, source_slug: str) -> str:
             continue
         candidates.append(part)
 
-    if candidates:
-        return candidates[-1]
-    return area_label_from_slug(source_slug)
+    return candidates[-1] if candidates else "Other"
 
 
 def address_matches_county(address: str, county: str) -> bool:
     return re.search(rf"\b{re.escape(county)}\b", address, re.I) is not None
 
 
-def parse_card(card, county: str, source_slug: str, source_page: str) -> SaleRow | None:
+def complete_card_anchors(soup: BeautifulSoup):
+    cards = []
+    for anchor in soup.select('a[href*="/sold/"]'):
+        if not anchor.select_one('[data-testid="card-container"]'):
+            continue
+        if not anchor.select_one('[data-tracking="srp_address"]'):
+            continue
+        if not anchor.select_one('[data-tracking="srp_price"]'):
+            continue
+        if not anchor.select_one('[data-tracking="srp_meta"]'):
+            continue
+        cards.append(anchor)
+    return cards
+
+
+def parse_card(card, county: str, source_page: str) -> SaleRow | None:
     address_node = card.select_one('[data-tracking="srp_address"]')
     price_node = card.select_one('[data-tracking="srp_price"]')
     meta_node = card.select_one('[data-tracking="srp_meta"]')
-    link_node = card.select_one('a[href*="/sold/"]')
 
     address = clean_text(address_node.get_text(" ", strip=True) if address_node else "")
     price_text = clean_text(price_node.get_text(" ", strip=True) if price_node else "")
     meta_text = clean_text(meta_node.get_text(" ", strip=True) if meta_node else "")
     card_text = clean_text(card.get_text(" ", strip=True))
-    href = clean_text(link_node.get("href") if link_node else "")
+    href = clean_text(card.get("href"))
 
     date_match = re.search(r"\bSOLD\s+(\d{2}/\d{2}/\d{4})\b", card_text, re.I)
     sold = parse_money(price_text or card_text, "Sold")
     asking = parse_money(price_text or card_text, "Asking")
 
-    spans = [clean_text(node.get_text(" ", strip=True)) for node in card.select('[data-tracking="srp_meta"] span')]
+    spans = [
+        clean_text(node.get_text(" ", strip=True))
+        for node in card.select('[data-tracking="srp_meta"] span')
+    ]
     property_type = "Unknown"
     for value in reversed(spans):
         if not re.search(r"\b(?:bed|bath|m²|m2|sq\.?\s*m)\b", value, re.I):
             property_type = value
             break
 
-    # Asking-price comparison is the point of this dataset, so POA rows are skipped.
-    if not all((date_match, sold, asking, address, href)):
-        LOGGER.info("Skipping card without complete asking/sold data on %s", source_page)
+    missing = []
+    if not date_match:
+        missing.append("sale_date")
+    if sold is None:
+        missing.append("sold_price")
+    if asking is None:
+        missing.append("asking_price")
+    if not address:
+        missing.append("address")
+    if not href:
+        missing.append("detail_url")
+
+    if missing:
+        LOGGER.info("Skipping incomplete card (%s) on %s", ", ".join(missing), source_page)
         return None
 
-    # Area result pages can include nearby places over a county boundary.
     if not address_matches_county(address, county):
-        LOGGER.info("Skipping cross-county result: %s", address)
+        LOGGER.info("Skipping cross-county card: %s", address)
         return None
 
     delta = sold - asking
@@ -240,19 +227,20 @@ def parse_card(card, county: str, source_slug: str, source_page: str) -> SaleRow
         size_sqm=parse_sqm(meta_text),
         address=address,
         county=county,
-        area=infer_area(address, county, source_slug),
+        area=infer_area(address, county),
         detail_url=urljoin(BASE_URL, href),
         source_page=source_page,
     )
 
 
-def parse_page(html: str, county: str, source_slug: str, source_page: str) -> list[SaleRow]:
+def parse_page(html: str, county: str, source_page: str) -> list[SaleRow]:
     soup = BeautifulSoup(html, "lxml")
-    cards = soup.select('li[data-testid^="result-"]')
+    cards = complete_card_anchors(soup)
+    LOGGER.info("Found %s complete sold-property cards on %s", len(cards), source_page)
     return [
         row
         for card in cards
-        if (row := parse_card(card, county, source_slug, source_page)) is not None
+        if (row := parse_card(card, county, source_page)) is not None
     ]
 
 
@@ -281,14 +269,17 @@ def get_html(page, url: str, use_cache: bool, timeout_ms: int) -> str:
     page.goto(url, wait_until="domcontentloaded", timeout=timeout_ms)
 
     try:
-        page.wait_for_selector('li[data-testid^="result-"]', timeout=timeout_ms)
+        page.wait_for_selector(
+            'a[href*="/sold/"] [data-testid="card-container"]',
+            timeout=timeout_ms,
+        )
     except PlaywrightTimeoutError:
         html = page.content()
         if is_security_page(html):
             raise RuntimeError(f"Daft security check returned for {url}")
-        raise RuntimeError(f"No sold-result cards appeared on {url}")
+        raise RuntimeError(f"No sold-property cards appeared on {url}")
 
-    page.wait_for_timeout(900)
+    page.wait_for_timeout(1000)
     html = page.content()
     if is_security_page(html):
         raise RuntimeError(f"Daft security check returned for {url}")
@@ -298,25 +289,13 @@ def get_html(page, url: str, use_cache: bool, timeout_ms: int) -> str:
     return html
 
 
-def selected_sources(counties: Iterable[str], areas: list[str] | None) -> list[tuple[str, str]]:
-    if areas:
-        output: list[tuple[str, str]] = []
-        for slug in areas:
-            county_slug = slug.rsplit("-", 1)[-1].casefold()
-            if county_slug not in COUNTY_LABELS:
-                raise ValueError(f"Cannot infer supported county from area slug: {slug}")
-            output.append((county_slug, slug))
-        return output
-
-    output = []
-    for county_slug in counties:
-        output.extend((county_slug, area_slug) for area_slug in AREA_SOURCES[county_slug])
-    return output
+def county_url(county_slug: str, page_number: int) -> str:
+    base = f"{BASE_URL}/sold-properties/{county_slug}?sort=soldDateDesc"
+    return base if page_number == 1 else f"{base}&page={page_number}"
 
 
 def collect(
     counties: list[str],
-    areas: list[str] | None,
     max_pages: int,
     delay: float,
     timeout_seconds: int,
@@ -324,7 +303,6 @@ def collect(
     headed: bool,
     profile_dir: Path,
 ) -> list[SaleRow]:
-    sources = selected_sources(counties, areas)
     output: dict[str, SaleRow] = {}
 
     with sync_playwright() as playwright:
@@ -343,16 +321,14 @@ def collect(
         page = context.pages[0] if context.pages else context.new_page()
 
         try:
-            for county_slug, source_slug in sources:
+            for county_slug in counties:
                 county = COUNTY_LABELS[county_slug]
                 for page_number in range(1, max_pages + 1):
-                    base = f"{BASE_URL}/sold-properties/{source_slug}"
-                    source_page = base if page_number == 1 else f"{base}?page={page_number}"
+                    source_page = county_url(county_slug, page_number)
                     html = get_html(page, source_page, use_cache, timeout_seconds * 1000)
-                    rows = parse_page(html, county, source_slug, source_page)
+                    rows = parse_page(html, county, source_page)
                     LOGGER.info(
-                        "%s (%s), page %s: %s valid asking-price rows",
-                        area_label_from_slug(source_slug),
+                        "%s page %s: %s valid asking-price rows",
                         county,
                         page_number,
                         len(rows),
@@ -368,21 +344,30 @@ def collect(
     return list(output.values())
 
 
+def sale_date_key(row: SaleRow) -> datetime:
+    try:
+        return datetime.strptime(row.sale_date, "%d/%m/%Y")
+    except ValueError:
+        return datetime.min
+
+
 def write_csv(rows: list[SaleRow], path: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
+    sorted_rows = sorted(rows, key=sale_date_key, reverse=True)
     with path.open("w", newline="", encoding="utf-8-sig") as handle:
         writer = csv.DictWriter(handle, fieldnames=COLUMNS)
         writer.writeheader()
-        for row in rows:
+        for row in sorted_rows:
             writer.writerow(asdict(row))
 
 
 def send_to_sheet(rows: list[SaleRow], mode: str, endpoint: str, token: str, timeout: int) -> dict:
+    sorted_rows = sorted(rows, key=sale_date_key, reverse=True)
     payload = {
         "token": token,
         "mode": mode,
         "minimum_rows": 5,
-        "rows": [asdict(row) for row in rows],
+        "rows": [asdict(row) for row in sorted_rows],
     }
     response = requests.post(endpoint, json=payload, timeout=timeout)
     response.raise_for_status()
@@ -394,18 +379,13 @@ def send_to_sheet(rows: list[SaleRow], mode: str, endpoint: str, token: str, tim
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Collect Daft sold cards by browsing one area URL at a time"
+        description="Collect Daft sold cards from county pages only"
     )
     parser.add_argument("--mode", choices=("full", "incremental"), default="incremental")
     parser.add_argument("--counties", default="dublin,carlow,kildare,wicklow")
-    parser.add_argument(
-        "--areas",
-        default="",
-        help="Optional comma-separated exact area slugs, e.g. sandyford-dublin,borris-carlow",
-    )
     parser.add_argument("--max-pages", type=int, default=None)
     parser.add_argument("--delay", type=float, default=1.0)
-    parser.add_argument("--timeout", type=int, default=45)
+    parser.add_argument("--timeout", type=int, default=60)
     parser.add_argument("--csv", default="output/property_sales.csv")
     parser.add_argument("--profile-dir", default=str(PROFILE_DIR))
     parser.add_argument("--headed", action="store_true")
@@ -416,20 +396,20 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> int:
     load_dotenv()
-    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s %(levelname)s %(name)s: %(message)s",
+    )
     args = parse_args()
 
     counties = [token.strip().casefold() for token in args.counties.split(",") if token.strip()]
-    invalid = [county for county in counties if county not in AREA_SOURCES]
+    invalid = [county for county in counties if county not in COUNTY_LABELS]
     if invalid:
         raise SystemExit(f"Unsupported counties: {', '.join(invalid)}")
 
-    areas = [token.strip().casefold() for token in args.areas.split(",") if token.strip()] or None
-    max_pages = args.max_pages if args.max_pages is not None else (3 if args.mode == "full" else 1)
-
+    max_pages = args.max_pages if args.max_pages is not None else (10 if args.mode == "full" else 3)
     rows = collect(
         counties=counties,
-        areas=areas,
         max_pages=max_pages,
         delay=args.delay,
         timeout_seconds=args.timeout,
@@ -437,7 +417,8 @@ def main() -> int:
         headed=args.headed,
         profile_dir=Path(args.profile_dir),
     )
-    if len(rows) < 1:
+
+    if not rows:
         raise RuntimeError("No valid asking-price rows were collected.")
 
     csv_path = Path(args.csv)

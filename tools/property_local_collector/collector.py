@@ -161,8 +161,6 @@ def complete_card_anchors(soup: BeautifulSoup):
             continue
         if not anchor.select_one('[data-tracking="srp_price"]'):
             continue
-        if not anchor.select_one('[data-tracking="srp_meta"]'):
-            continue
         cards.append(anchor)
     return cards
 
@@ -236,7 +234,7 @@ def parse_card(card, county: str, source_page: str) -> SaleRow | None:
 def parse_page(html: str, county: str, source_page: str) -> list[SaleRow]:
     soup = BeautifulSoup(html, "lxml")
     cards = complete_card_anchors(soup)
-    LOGGER.info("Found %s complete sold-property cards on %s", len(cards), source_page)
+    LOGGER.info("Found %s enriched sold-property cards on %s", len(cards), source_page)
     return [
         row
         for card in cards
@@ -279,7 +277,7 @@ def get_html(page, url: str, use_cache: bool, timeout_ms: int) -> str:
             raise RuntimeError(f"Daft security check returned for {url}")
         raise RuntimeError(f"No sold-property cards appeared on {url}")
 
-    page.wait_for_timeout(1000)
+    page.wait_for_timeout(1200)
     html = page.content()
     if is_security_page(html):
         raise RuntimeError(f"Daft security check returned for {url}")
@@ -290,8 +288,10 @@ def get_html(page, url: str, use_cache: bool, timeout_ms: int) -> str:
 
 
 def county_url(county_slug: str, page_number: int) -> str:
-    base = f"{BASE_URL}/sold-properties/{county_slug}?sort=soldDateDesc"
-    return base if page_number == 1 else f"{base}&page={page_number}"
+    # Do not add sort=soldDateDesc. Daft's "Most Recent" view returns limited
+    # register-only cards without asking price or property metadata.
+    base = f"{BASE_URL}/sold-properties/{county_slug}"
+    return base if page_number == 1 else f"{base}?page={page_number}"
 
 
 def collect(
@@ -379,7 +379,7 @@ def send_to_sheet(rows: list[SaleRow], mode: str, endpoint: str, token: str, tim
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Collect Daft sold cards from county pages only"
+        description="Collect enriched Daft sold cards from county pages"
     )
     parser.add_argument("--mode", choices=("full", "incremental"), default="incremental")
     parser.add_argument("--counties", default="dublin,carlow,kildare,wicklow")
@@ -407,6 +407,8 @@ def main() -> int:
     if invalid:
         raise SystemExit(f"Unsupported counties: {', '.join(invalid)}")
 
+    # The default Daft view is not strictly chronological. We scan a fixed
+    # page window, deduplicate by detail URL, then sort locally by sale date.
     max_pages = args.max_pages if args.max_pages is not None else (10 if args.mode == "full" else 3)
     rows = collect(
         counties=counties,

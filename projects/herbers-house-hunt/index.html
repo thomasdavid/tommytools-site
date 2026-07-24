@@ -3,35 +3,36 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="description" content="Help Herber the ginger cat catch flies and dodge the vacuum in this isometric browser game from Tommy Tools.">
+<meta name="description" content="Help Herbert the ginger cat catch flies, uncover treats and dodge the vacuum in this isometric browser game from Tommy Tools.">
 <meta name="theme-color" content="#183648">
-<title>Herber's House Hunt — Tommy Tools</title>
+<title>Herbert's House Hunt — Tommy Tools</title>
 <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-<header class="bar"><a href="/" aria-label="Back to Tommy Tools">← Tommy Tools</a><strong>Herber's House Hunt</strong></header>
+<header class="bar"><a href="/" aria-label="Back to Tommy Tools">← Tommy Tools</a><strong>Herbert's House Hunt</strong></header>
 <main class="page">
   <section class="intro" aria-labelledby="page-title">
-    <div><h1 id="page-title">Herber's House Hunt</h1><p>Catch the flies, protect the snacks and stay one paw ahead of the vacuum.</p></div>
-    <div class="best-pill">Best score: <span id="pageBest">0</span></div>
+    <div><h1 id="page-title">Herbert's House Hunt</h1><p>Race through four rooms, catch fast-moving flies, uncover hidden treats and jump clear of the vacuum.</p></div>
+    <div class="best-pill">League best: <span id="pageBest">0</span></div>
   </section>
 
-  <section class="game-card" id="gameCard" aria-label="Herber's House Hunt game">
+  <section class="game-card" id="gameCard" aria-label="Herbert's House Hunt game">
     <div class="game-stage" id="gameStage">
-      <canvas id="game" width="1200" height="720" tabindex="0" aria-label="Isometric game. Move Herber with arrow keys or W A S D. Press space to pounce on flies. Avoid the vacuum."></canvas>
+      <canvas id="game" width="1200" height="720" tabindex="0" aria-label="Isometric game. Move Herbert with arrow keys or W A S D. Press Space to pounce and J or Shift to jump. Avoid three vacuum hits."></canvas>
 
       <div class="hud" aria-live="polite">
         <div class="hud-group">
           <div class="hud-chip"><span class="hud-label">Score</span><span class="hud-value" id="scoreValue">0</span></div>
+          <div class="hud-chip"><span class="hud-label">Treats</span><span class="hud-value" id="treatValue">0</span></div>
           <div class="hud-chip" id="comboChip"><span class="hud-label">Combo</span><span class="hud-value" id="comboValue">×2</span></div>
         </div>
         <div class="hud-group">
-          <div class="hud-chip"><span class="hud-label">Lives</span><span class="hud-value" id="hearts">❤❤❤</span></div>
-          <div class="hud-chip"><span class="hud-label">Time</span><span class="hud-value" id="timeValue">90</span></div>
+          <div class="hud-chip"><span class="hud-label">Hits left</span><span class="hud-value" id="hearts">❤❤❤</span></div>
+          <div class="hud-chip"><span class="hud-label">Time</span><span class="hud-value" id="timeValue">60</span></div>
         </div>
       </div>
 
-      <div class="danger-banner" id="dangerBanner">Vacuum alert</div>
+      <div class="danger-banner" id="dangerBanner">Vacuum incoming</div>
       <div class="live-message" id="liveMessage" role="status" aria-live="assertive"></div>
 
       <div class="stage-buttons">
@@ -40,37 +41,54 @@
         <button class="icon-button" id="fullscreenButton" type="button" aria-label="Enter fullscreen" title="Fullscreen">⛶</button>
       </div>
 
-      <div class="mobile-controls" id="mobileControls" aria-label="Touch controls">
+      <div class="mobile-controls" aria-label="Touch movement control">
         <div class="joystick" id="joystick" aria-label="Movement joystick"><div class="joystick-knob" id="joystickKnob"></div></div>
-        <button class="pounce-button" id="pounceButton" type="button">Pounce</button>
+      </div>
+
+      <div class="action-controls" aria-label="Game actions">
+        <button class="action-button jump-button" id="jumpButton" type="button"><span>Jump</span><small>J / Shift</small></button>
+        <button class="action-button pounce-button" id="pounceButton" type="button"><span>Pounce</span><small>Space</small></button>
       </div>
 
       <div class="overlay" id="overlay">
         <div class="panel">
           <div class="cat-badge" aria-hidden="true">🐈</div>
           <p class="eyebrow" id="overlayEyebrow">A Tommy Tools game</p>
-          <h2 id="overlayTitle">Herber's<br>House Hunt</h2>
-          <p id="overlayCopy">Guide Herber the ginger cat around the house. Pounce on flies for points, build a combo and do not let the vacuum catch you.</p>
+          <h2 id="overlayTitle">Herbert's<br>House Hunt</h2>
+          <p id="overlayCopy">Guide Herbert through the living room, hallway, bedroom and bathroom. Catch flies, uncover hidden treats and jump clear when the vacuum charges.</p>
           <div class="controls-row" id="controlsRow">
             <div class="control-tip"><kbd>WASD</kbd><br>Move</div>
             <div class="control-tip"><kbd>Space</kbd><br>Pounce</div>
+            <div class="control-tip"><kbd>J</kbd><br>Jump</div>
             <div class="control-tip"><kbd>P</kbd><br>Pause</div>
           </div>
           <div class="result-line" id="resultLine" hidden>
             <div class="result-item"><span>Score</span><strong id="resultScore">0</strong></div>
             <div class="result-item"><span>Flies</span><strong id="resultFlies">0</strong></div>
-            <div class="result-item"><span>Best</span><strong id="resultBest">0</strong></div>
+            <div class="result-item"><span>Treats</span><strong id="resultTreats">0</strong></div>
+            <div class="result-item"><span>Rank</span><strong id="resultRank">—</strong></div>
           </div>
-          <button class="primary-button" id="overlayButton" type="button">Start hunting</button>
+          <button class="primary-button" id="overlayButton" type="button">Start 60-second hunt</button>
         </div>
       </div>
     </div>
   </section>
 
   <section class="info-grid" aria-label="How to play">
-    <article class="info-card"><strong>Catch flies</strong><p>Line up a fly and pounce. Quick catches grow Herber's combo up to five times the points.</p></article>
-    <article class="info-card"><strong>Read the vacuum</strong><p>Its light flashes before a chase. Use furniture and corners to break its route through the house.</p></article>
-    <article class="info-card"><strong>Beat your best</strong><p>You have 90 seconds and three lives. Your best score is saved only in this browser.</p></article>
+    <article class="info-card"><strong>Move through four rooms</strong><p>Explore the living room, kitchen, hallway, bedroom and bathroom. Herbert now has separate north, south, east and west sprites.</p></article>
+    <article class="info-card"><strong>Pounce and search</strong><p>Flies move faster and change direction unpredictably. Pounce near hidden floor treats to uncover a 250-point bonus.</p></article>
+    <article class="info-card"><strong>Jump the vacuum</strong><p>Use Jump to dodge a chase or land on climbable furniture. Three vacuum hits end the run before the 60 seconds are up.</p></article>
+  </section>
+
+  <section class="league-card" aria-labelledby="league-title">
+    <div class="league-heading"><div><p class="eyebrow">Saved in this browser</p><h2 id="league-title">Your Herbert league table</h2></div><p>Your ten best one-minute runs are ranked by score.</p></div>
+    <div class="league-table-wrap">
+      <table>
+        <thead><tr><th>Rank</th><th>Score</th><th>Flies</th><th>Treats</th><th>Date</th></tr></thead>
+        <tbody id="leagueRows"></tbody>
+      </table>
+      <p class="league-empty" id="leagueEmpty">Complete a run to enter the league table.</p>
+    </div>
   </section>
 </main>
 <script src="game-core.js"></script>

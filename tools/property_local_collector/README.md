@@ -1,8 +1,6 @@
 # Local four-county property collector
 
-This collector replaces the blocked Google `UrlFetchApp` and browser-automation approaches.
-
-It runs as normal Python on the user's Windows PC, fetches only the county sold-result pages, parses the visible result cards, saves a CSV backup, and posts validated rows to a Google Apps Script web app. The existing GitHub workflow then syncs the `Raw` sheet into Render PostgreSQL.
+This collector runs on the user's Windows PC, gathers the four-county sold-property data, saves a CSV backup, and posts validated rows to the Google Sheet `Raw` tab. A GitHub workflow then syncs the sheet into Render PostgreSQL.
 
 ## Counties
 
@@ -13,10 +11,13 @@ It runs as normal Python on the user's Windows PC, fetches only the county sold-
 
 ## Files
 
-- `collector.py` — local HTTP collector and card parser
+- `collector.py` — local collector and card parser
 - `PropertyReceiver.gs` — Apps Script web receiver that writes/upserts `Raw`
-- `run_full.bat` — initial backfill, 10 pages per county
-- `run_daily.bat` — daily incremental collection, 2 pages per county
+- `run_full.bat` — initial backfill
+- `run_daily.bat` — immediate forced incremental run
+- `run_scheduled.ps1` — due-check, catch-up depth, locking, logging and state tracking
+- `install_scheduler.ps1` — installs the resilient Windows scheduled task
+- `uninstall_scheduler.ps1` — removes the scheduled task
 - `.env.example` — endpoint and shared-secret template
 
 ## 1. Deploy the Apps Script receiver
@@ -44,8 +45,7 @@ From PowerShell:
 ```powershell
 cd <repo>\tools\property_local_collector
 py -3.13 -m venv .venv
-.\.venv\Scripts\Activate.ps1
-python -m pip install -r requirements.txt
+.\.venv\Scripts\python.exe -m pip install -r requirements.txt
 Copy-Item .env.example .env
 ```
 
@@ -59,7 +59,7 @@ COLLECTOR_TOKEN=<the same secret stored in Apps Script>
 ## 3. Test one page without uploading
 
 ```powershell
-python collector.py --mode full --counties carlow --max-pages 1 --no-upload
+.\.venv\Scripts\python.exe collector.py --mode full --counties carlow --max-pages 1 --no-upload
 ```
 
 Expected result:
@@ -70,27 +70,84 @@ Expected result:
 - county `Carlow`
 - area such as `Borris`
 
-If this command returns HTTP 403 or a Daft security-check error, plain local HTTP access is also blocked and the collector exits without changing Google Sheets.
+The collector exits without changing Google Sheets if it receives a blocked response, no cards, or fewer than five valid rows.
 
 ## 4. Initial four-county backfill
 
 ```powershell
-python collector.py --mode full --counties dublin,carlow,kildare,wicklow --max-pages 10
+.\.venv\Scripts\python.exe collector.py --mode full --counties dublin,carlow,kildare,wicklow --max-pages 10
 ```
 
 Or double-click `run_full.bat`.
 
-Full mode replaces the `Raw` data with the newly collected deduplicated set. The Apps Script receiver refuses uploads containing fewer than five valid rows.
+Full mode replaces `Raw` with the newly collected deduplicated set. The Apps Script receiver refuses uploads containing fewer than five valid rows.
 
-## 5. Daily incremental update
+## 5. Install the resilient scheduler
+
+Open **PowerShell as Administrator** in this folder and run:
 
 ```powershell
-python collector.py --mode incremental --counties dublin,carlow,kildare,wicklow --max-pages 2
+Set-ExecutionPolicy -Scope Process Bypass
+.\install_scheduler.ps1
 ```
 
-Incremental mode merges new rows into the existing `Raw` sheet using `detail_url` as the unique key.
+Enter the Windows account password when prompted. Use the account password, not the Windows Hello PIN. The task is registered under the current Windows account so it can access the internet even when the user is logged out.
 
-`run_daily.bat` can be scheduled with Windows Task Scheduler. Run it before the GitHub `Sync property Google Sheet` job at 06:15 UTC.
+The installed task has two triggers:
+
+- daily at 04:45;
+- five minutes after Windows starts.
+
+It also enables:
+
+- **Start the task as soon as possible after a scheduled start is missed**;
+- **Wake the computer to run this task**;
+- **Run only when a network connection is available**;
+- three automatic retries, 30 minutes apart;
+- one active instance only.
+
+Microsoft documents `StartWhenAvailable` as allowing Task Scheduler to start a task after its scheduled time has passed, while startup and daily triggers can coexist on one task.
+
+### Catch-up behaviour
+
+`run_scheduled.ps1` records the most recent successful run in `output/scheduler_state.json`.
+
+- last success under 20 hours ago: skip;
+- 20–72 hours ago: scan 2 pages per county;
+- 3–7 days ago: scan 5 pages per county;
+- over 7 days ago, or no successful run recorded: scan 10 pages per county.
+
+This means the computer can be off for several days. When it next starts, the startup trigger runs a deeper catch-up scan automatically.
+
+### Test the task
+
+```powershell
+Start-ScheduledTask -TaskName "TommyTools Property Collector"
+```
+
+Review:
+
+```text
+output\scheduled.log
+output\scheduler_state.json
+output\scheduler_last_failure.json
+```
+
+To force an immediate manual run:
+
+```powershell
+.\run_scheduled.ps1 -Force
+```
+
+To remove the task:
+
+```powershell
+.\uninstall_scheduler.ps1
+```
+
+## 6. Sheet-to-database sync
+
+The GitHub `Sync property Google Sheet` workflow runs every three hours at 15 minutes past the hour. Therefore, when the computer comes online late and uploads fresh rows, PostgreSQL normally receives them within three hours rather than waiting until the next morning.
 
 ## Data fields
 
@@ -112,5 +169,3 @@ area
 detail_url
 source_page
 ```
-
-No detail pages are opened. All fields come from the county result-card HTML.

@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="description" content="Help Herber the ginger cat catch flies and dodge the vacuum in this isometric browser game from Tommy Tools.">
+<meta name="theme-color" content="#183648">
+<title>Herber's House Hunt — Tommy Tools</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<header class="bar"><a href="/" aria-label="Back to Tommy Tools">← Tommy Tools</a><strong>Herber's House Hunt</strong></header>
+<main class="page">
+  <section class="intro" aria-labelledby="page-title">
+    <div><h1 id="page-title">Herber's House Hunt</h1><p>Catch the flies, protect the snacks and stay one paw ahead of the vacuum.</p></div>
+    <div class="best-pill">Best score: <span id="pageBest">0</span></div>
+  </section>
+
+  <section class="game-card" id="gameCard" aria-label="Herber's House Hunt game">
+    <div class="game-stage" id="gameStage">
+      <canvas id="game" width="1200" height="720" tabindex="0" aria-label="Isometric game. Move Herber with arrow keys or W A S D. Press space to pounce on flies. Avoid the vacuum."></canvas>
+
+      <div class="hud" aria-live="polite">
+        <div class="hud-group">
+          <div class="hud-chip"><span class="hud-label">Score</span><span class="hud-value" id="scoreValue">0</span></div>
+          <div class="hud-chip" id="comboChip"><span class="hud-label">Combo</span><span class="hud-value" id="comboValue">×2</span></div>
+        </div>
+        <div class="hud-group">
+          <div class="hud-chip"><span class="hud-label">Lives</span><span class="hud-value" id="hearts">❤❤❤</span></div>
+          <div class="hud-chip"><span class="hud-label">Time</span><span class="hud-value" id="timeValue">90</span></div>
+        </div>
+      </div>
+
+      <div class="danger-banner" id="dangerBanner">Vacuum alert</div>
+      <div class="live-message" id="liveMessage" role="status" aria-live="assertive"></div>
+
+      <div class="stage-buttons">
+        <button class="icon-button" id="soundButton" type="button" aria-label="Mute sound" title="Sound">♪</button>
+        <button class="icon-button" id="pauseButton" type="button" aria-label="Pause game" title="Pause">Ⅱ</button>
+        <button class="icon-button" id="fullscreenButton" type="button" aria-label="Enter fullscreen" title="Fullscreen">⛶</button>
+      </div>
+
+      <div class="mobile-controls" id="mobileControls" aria-label="Touch controls">
+        <div class="joystick" id="joystick" aria-label="Movement joystick"><div class="joystick-knob" id="joystickKnob"></div></div>
+        <button class="pounce-button" id="pounceButton" type="button">Pounce</button>
+      </div>
+
+      <div class="overlay" id="overlay">
+        <div class="panel">
+          <div class="cat-badge" aria-hidden="true">🐈</div>
+          <p class="eyebrow" id="overlayEyebrow">A Tommy Tools game</p>
+          <h2 id="overlayTitle">Herber's<br>House Hunt</h2>
+          <p id="overlayCopy">Guide Herber the ginger cat around the house. Pounce on flies for points, build a combo and do not let the vacuum catch you.</p>
+          <div class="controls-row" id="controlsRow">
+            <div class="control-tip"><kbd>WASD</kbd><br>Move</div>
+            <div class="control-tip"><kbd>Space</kbd><br>Pounce</div>
+            <div class="control-tip"><kbd>P</kbd><br>Pause</div>
+          </div>
+          <div class="result-line" id="resultLine" hidden>
+            <div class="result-item"><span>Score</span><strong id="resultScore">0</strong></div>
+            <div class="result-item"><span>Flies</span><strong id="resultFlies">0</strong></div>
+            <div class="result-item"><span>Best</span><strong id="resultBest">0</strong></div>
+          </div>
+          <button class="primary-button" id="overlayButton" type="button">Start hunting</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="info-grid" aria-label="How to play">
+    <article class="info-card"><strong>Catch flies</strong><p>Line up a fly and pounce. Quick catches grow Herber's combo up to five times the points.</p></article>
+    <article class="info-card"><strong>Read the vacuum</strong><p>Its light flashes before a chase. Use furniture and corners to break its route through the house.</p></article>
+    <article class="info-card"><strong>Beat your best</strong><p>You have 90 seconds and three lives. Your best score is saved only in this browser.</p></article>
+  </section>
+</main>
+<script src="game-core.js"></script>
+<script src="game-house.js"></script>
+<script src="game-play.js"></script>
+<script src="game-render.js"></script>
+</body>
+</html>

@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="description" content="Help Herbert the ginger cat explore his apartment, catch flies, uncover treats and dodge the vacuum in this isometric browser game from Tommy Tools.">
-<meta name="theme-color" content="#183648">
+<meta name="description" content="Help Herbert the ginger cat explore his real apartment floor plan, catch flies, uncover treats and dodge the vacuum in this 32-bit isometric browser game from Tommy Tools.">
+<meta name="theme-color" content="#111725">
 <title>Herbert's House Hunt — Tommy Tools</title>
 <link rel="stylesheet" href="styles.css">
 </head>
@@ -12,7 +12,7 @@
 <header class="bar"><a href="/" aria-label="Back to Tommy Tools">← Tommy Tools</a><strong>Herbert's House Hunt</strong></header>
 <main class="page">
   <section class="intro" aria-labelledby="page-title">
-    <div><h1 id="page-title">Herbert's House Hunt</h1><p>Explore Herbert's apartment, catch fast-moving flies, uncover hidden treats and jump clear when the vacuum charges.</p></div>
+    <div><h1 id="page-title">Herbert's House Hunt</h1><p>A 32-bit isometric game built around Herbert's actual apartment plan: living room and kitchen, corridor, two bedrooms, bathroom, ensuite and balcony.</p></div>
     <div class="best-pill">League best: <span id="pageBest">0</span></div>
   </section>
 
@@ -53,9 +53,9 @@
       <div class="overlay" id="overlay">
         <div class="panel">
           <div class="cat-badge" aria-hidden="true">🐈</div>
-          <p class="eyebrow" id="overlayEyebrow">Herbert's real apartment</p>
+          <p class="eyebrow" id="overlayEyebrow">32-bit floor-plan edition</p>
           <h2 id="overlayTitle">Herbert's<br>House Hunt</h2>
-          <p id="overlayCopy">Explore Herbert's open-plan living room and L-shaped kitchen, then race through the hallway, bedroom and bathroom. Catch flies, uncover hidden treats and jump onto the real furniture.</p>
+          <p id="overlayCopy">Explore the exact apartment plan: the open living room and kitchen, corridor, bunk bedroom, master bedroom, bathroom, ensuite and triangular balcony.</p>
           <div class="controls-row" id="controlsRow">
             <div class="control-tip"><kbd>WASD</kbd><br>Move</div>
             <div class="control-tip"><kbd>Space</kbd><br>Pounce</div>
@@ -75,9 +75,9 @@
   </section>
 
   <section class="info-grid" aria-label="How to play">
-    <article class="info-card"><strong>Explore Herbert's apartment</strong><p>The enlarged main room follows the real glossy tiled living space, L-shaped kitchen, grey sofa, round black table, central shelf, TV unit and window wall.</p></article>
-    <article class="info-card"><strong>Pounce and search</strong><p>Flies make fast, unpredictable turns. Pounce near hidden floor treats to uncover a 250-point bonus and build your score.</p></article>
-    <article class="info-card"><strong>Jump the real furniture</strong><p>The sofa, round dining table, black shelving unit and both kitchen-counter runs are jumpable. Three vacuum hits end the run.</p></article>
+    <article class="info-card"><strong>Follow the real floor plan</strong><p>The open-plan room is the largest area, leading through the marked corridor to the small bunk bedroom, master bedroom, bathroom and ensuite.</p></article>
+    <article class="info-card"><strong>Explore every room</strong><p>The sloping exterior wall forms the triangular balcony, with doors from the living side and master-bedroom side placed from the annotated plan.</p></article>
+    <article class="info-card"><strong>Jump Herbert's furniture</strong><p>The sofa, round dining table, long black shelf, kitchen counters and beds are jumpable. Three vacuum hits end the one-minute run.</p></article>
   </section>
 
   <section class="league-card" aria-labelledby="league-title">
@@ -97,5 +97,7 @@
 <script src="game-apartment.js"></script>
 <script src="game-render.js"></script>
 <script src="game-herbert.js"></script>
+<script src="game-floorplan.js"></script>
+<script src="game-floorplan-calibration.js"></script>
 </body>
 </html>

@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="description" content="Help Herbert the ginger cat explore his real apartment floor plan, catch flies, uncover treats and dodge the vacuum in this 32-bit isometric browser game from Tommy Tools.">
+<meta name="description" content="Help Herbert the ginger cat explore his expanded apartment from an inward-facing follow camera, catch flies, uncover treats and dodge the vacuum in this 32-bit browser game from Tommy Tools.">
 <meta name="theme-color" content="#111725">
 <title>Herbert's House Hunt — Tommy Tools</title>
 <link rel="stylesheet" href="styles.css">
@@ -12,13 +12,13 @@
 <header class="bar"><a href="/" aria-label="Back to Tommy Tools">← Tommy Tools</a><strong>Herbert's House Hunt</strong></header>
 <main class="page">
   <section class="intro" aria-labelledby="page-title">
-    <div><h1 id="page-title">Herbert's House Hunt</h1><p>A 32-bit isometric game built around Herbert's actual apartment plan: living room and kitchen, corridor, two bedrooms, bathroom, ensuite and balcony.</p></div>
+    <div><h1 id="page-title">Herbert's House Hunt</h1><p>A larger 32-bit apartment adventure with an inward-facing follow camera, widely spaced furniture and walls that fade whenever they would hide Herbert.</p></div>
     <div class="best-pill">League best: <span id="pageBest">0</span></div>
   </section>
 
   <section class="game-card" id="gameCard" aria-label="Herbert's House Hunt game">
     <div class="game-stage" id="gameStage">
-      <canvas id="game" width="1200" height="720" tabindex="0" aria-label="Isometric game. Move Herbert with arrow keys or W A S D. Press Space to pounce and J or Shift to jump. Avoid three vacuum hits."></canvas>
+      <canvas id="game" width="1200" height="720" tabindex="0" aria-label="Follow-camera apartment game. Move Herbert with arrow keys or W A S D. Press Space to pounce and J or Shift to jump. Foreground walls fade when they obscure Herbert. Avoid three vacuum hits."></canvas>
 
       <div class="hud" aria-live="polite">
         <div class="hud-group">
@@ -53,9 +53,9 @@
       <div class="overlay" id="overlay">
         <div class="panel">
           <div class="cat-badge" aria-hidden="true">🐈</div>
-          <p class="eyebrow" id="overlayEyebrow">32-bit floor-plan edition</p>
+          <p class="eyebrow" id="overlayEyebrow">Expanded inward-camera edition</p>
           <h2 id="overlayTitle">Herbert's<br>House Hunt</h2>
-          <p id="overlayCopy">Explore the exact apartment plan: the open living room and kitchen, corridor, bunk bedroom, master bedroom, bathroom, ensuite and triangular balcony.</p>
+          <p id="overlayCopy">The camera follows Herbert through a much larger version of the real apartment. Furniture has more breathing room and walls fade whenever Herbert passes behind them.</p>
           <div class="controls-row" id="controlsRow">
             <div class="control-tip"><kbd>WASD</kbd><br>Move</div>
             <div class="control-tip"><kbd>Space</kbd><br>Pounce</div>
@@ -75,9 +75,9 @@
   </section>
 
   <section class="info-grid" aria-label="How to play">
-    <article class="info-card"><strong>Follow the real floor plan</strong><p>The open-plan room is the largest area, leading through the marked corridor to the small bunk bedroom, master bedroom, bathroom and ensuite.</p></article>
-    <article class="info-card"><strong>Explore every room</strong><p>The sloping exterior wall forms the triangular balcony, with doors from the living side and master-bedroom side placed from the annotated plan.</p></article>
-    <article class="info-card"><strong>Jump Herbert's furniture</strong><p>The sofa, round dining table, long black shelf, kitchen counters and beds are jumpable. Three vacuum hits end the one-minute run.</p></article>
+    <article class="info-card"><strong>Inward-facing follow camera</strong><p>The apartment is no longer presented as a fixed isometric cutaway. The camera follows Herbert and looks directly into each room as he moves.</p></article>
+    <article class="info-card"><strong>A much larger play area</strong><p>The floor plan is expanded to nearly twice its previous dimensions while furniture footprints are reduced, creating substantially wider routes and clearer chases.</p></article>
+    <article class="info-card"><strong>Automatic wall fading</strong><p>Walls closer to the camera become transparent when Herbert moves behind them, keeping him visible without removing the apartment structure.</p></article>
   </section>
 
   <section class="league-card" aria-labelledby="league-title">
@@ -99,5 +99,6 @@
 <script src="game-herbert.js"></script>
 <script src="game-floorplan.js"></script>
 <script src="game-floorplan-calibration.js"></script>
+<script src="game-inward-camera.js"></script>
 </body>
 </html>

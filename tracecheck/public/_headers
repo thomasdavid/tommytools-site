@@ -3,4 +3,4 @@
   Referrer-Policy: no-referrer
   X-Frame-Options: DENY
   Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=(), usb=()
-  Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'
+  Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self' https://www.google-analytics.com https://connect.facebook.net https://bat.bing.com https://analytics.tiktok.com https://static.ads-twitter.com; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'

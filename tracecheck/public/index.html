@@ -3,75 +3,117 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <meta name="description" content="See what websites can learn about your browser and connection, without creating a tracking profile." />
+  <meta name="description" content="TraceCheck shows what websites can learn about your browser, network, storage and tracking surface." />
   <title>TraceCheck — See your digital fingerprint</title>
   <link rel="stylesheet" href="/styles.css" />
   <link rel="stylesheet" href="/tooltips.css" />
+  <link rel="stylesheet" href="/v2.css" />
 </head>
 <body>
   <div class="bg-grid" aria-hidden="true"></div>
   <header class="site-header">
     <a class="brand" href="/" aria-label="TraceCheck home"><span class="brand-mark">T</span><span>TraceCheck</span></a>
-    <div class="privacy-pill"><span class="dot"></span> No fingerprint database</div>
+    <div class="privacy-pill"><span class="dot"></span> Privacy-first diagnostics</div>
   </header>
 
   <main>
     <section class="hero" id="hero">
       <div class="eyebrow">YOUR DIGITAL FINGERPRINT</div>
       <h1>See what the web<br><span>can learn about you.</span></h1>
-      <p class="hero-copy">TraceCheck inspects the signals your browser and connection expose to websites. Your browser fingerprint is calculated locally and is not uploaded or stored by us.</p>
+      <p class="hero-copy">TraceCheck inspects browser, network, storage, fingerprinting and tracking signals. Core fingerprint calculations stay on your device. External intelligence tests are opt-in and clearly labelled.</p>
       <div class="hero-actions">
         <button class="primary" id="scanButton">Run my scan <span>→</span></button>
         <button class="secondary" id="privacyButton">How privacy works</button>
       </div>
       <div class="mini-grid">
-        <div><strong>Browser</strong><span>Fingerprint signals</span></div>
-        <div><strong>Network</strong><span>IP & edge metadata</span></div>
-        <div><strong>Privacy</strong><span>Cookies & protection settings</span></div>
-        <div><strong>Compare</strong><span>Against your last scan</span></div>
+        <div><strong>Browser</strong><span>Canvas, WebGL, audio, fonts</span></div>
+        <div><strong>Network</strong><span>IP, WebRTC, TLS, reputation</span></div>
+        <div><strong>Storage</strong><span>Cookies, IndexedDB, caches</span></div>
+        <div><strong>Deep Scan</strong><span>Optional browser extension</span></div>
       </div>
     </section>
 
     <section class="scan-shell hidden" id="scanShell" aria-live="polite">
       <div class="scan-header">
-        <div><div class="eyebrow">LIVE SELF-AUDIT</div><h2 id="scanTitle">Scanning your browser…</h2><p id="scanStatus">Collecting only the signals a normal website can access.</p></div>
-        <div class="pulse-orb" id="pulseOrb"><span></span></div>
+        <div><div class="eyebrow">LIVE SELF-AUDIT</div><h2 id="scanTitle">Scanning your browser…</h2><p id="scanStatus">Collecting browser-accessible signals locally.</p></div>
+        <div class="pulse-orb"><span></span></div>
       </div>
       <div class="progress"><div id="progressBar"></div></div>
     </section>
 
     <section class="results hidden" id="results">
       <div class="result-intro">
-        <div><div class="eyebrow">YOUR RESULT</div><h2 id="headline">Your browser is fairly distinctive.</h2><p id="summary">The combination of signals exposed by this browser can make repeat recognition easier.</p></div>
+        <div><div class="eyebrow">YOUR RESULT</div><h2 id="headline">Your browser is fairly distinctive.</h2><p id="summary"></p></div>
         <button class="secondary compact" id="rescanButton">Scan again</button>
       </div>
 
       <div class="score-grid">
-        <article class="score-card"><div class="score-label">Identifiability</div><div class="score-row"><strong id="identScore">—</strong><span>/100</span></div><div class="meter"><i id="identMeter"></i></div><p id="identText">How much stable browser detail is exposed.</p></article>
-        <article class="score-card"><div class="score-label">Privacy protection</div><div class="score-row"><strong id="privacyScore">—</strong><span>/100</span></div><div class="meter"><i id="privacyMeter"></i></div><p id="privacyText">Visible browser privacy controls and resistance signals.</p></article>
-        <article class="score-card"><div class="score-label">Network consistency</div><div class="score-row"><strong id="networkScore">—</strong><span>/100</span></div><div class="meter"><i id="networkMeter"></i></div><p id="networkText">Whether network and browser location signals agree.</p></article>
+        <article class="score-card"><div class="score-label">Identifiability</div><div class="score-row"><strong id="identScore">—</strong><span>/100</span></div><div class="meter"><i id="identMeter"></i></div><p id="identText"></p></article>
+        <article class="score-card"><div class="score-label">Privacy protection</div><div class="score-row"><strong id="privacyScore">—</strong><span>/100</span></div><div class="meter"><i id="privacyMeter"></i></div><p id="privacyText"></p></article>
+        <article class="score-card"><div class="score-label">Network consistency</div><div class="score-row"><strong id="networkScore">—</strong><span>/100</span></div><div class="meter"><i id="networkMeter"></i></div><p id="networkText"></p></article>
       </div>
 
       <div class="panel-grid">
         <article class="panel">
-          <div class="panel-title"><span class="icon">⌁</span><div><h3>Network identity</h3><p>What our Cloudflare edge sees</p></div></div>
+          <div class="panel-title"><span class="icon">⌁</span><div><h3>Network identity</h3><p>What the Cloudflare edge sees</p></div></div>
           <dl id="networkList"></dl>
-          <div class="note">IP reputation and VPN/proxy classification are intentionally marked as unavailable until a vetted reputation provider is connected.</div>
+          <div class="panel-actions"><button class="secondary full" id="ipIntelButton">Run external IP intelligence</button></div>
+          <div class="note" id="ipIntelNote">Optional: sends your already-public IP address to ipapi.is for VPN, proxy, Tor, hosting and abuse classification. No fingerprint or cookie data is sent.</div>
         </article>
+
         <article class="panel">
           <div class="panel-title"><span class="icon">◫</span><div><h3>Browser fingerprint</h3><p>Calculated locally on this device</p></div></div>
           <dl id="fingerprintList"></dl>
           <div class="fingerprint-hash"><span>Local fingerprint hash</span><code id="fingerprintHash">—</code></div>
         </article>
+
+        <article class="panel">
+          <div class="panel-title"><span class="icon">◉</span><div><h3>Advanced fingerprint</h3><p>Higher-entropy browser signals</p></div></div>
+          <dl id="advancedList"></dl>
+        </article>
+
+        <article class="panel">
+          <div class="panel-title"><span class="icon">⌁</span><div><h3>WebRTC network exposure</h3><p>ICE candidates visible to page JavaScript</p></div></div>
+          <dl id="webrtcList"></dl>
+          <div class="note">Modern browsers often replace local addresses with mDNS names. A server-reflexive candidate may still reveal a public address via STUN.</div>
+        </article>
+
         <article class="panel">
           <div class="panel-title"><span class="icon">◎</span><div><h3>Privacy signals</h3><p>Settings websites can observe</p></div></div>
           <dl id="privacyList"></dl>
         </article>
+
         <article class="panel">
-          <div class="panel-title"><span class="icon">◌</span><div><h3>Cookies & storage</h3><p>What this origin can actually store and read</p></div></div>
+          <div class="panel-title"><span class="icon">◌</span><div><h3>Cookies & storage</h3><p>What this site can actually store and read</p></div></div>
           <dl id="cookieList"></dl>
-          <div class="note">TraceCheck briefly creates one first-party test cookie and deletes it immediately. Cookie values are never displayed or uploaded. HttpOnly cookies are intentionally invisible to page JavaScript.</div>
+          <div id="originCookieList" class="cookie-list"></div>
+          <div class="note">A normal website can only list JavaScript-visible cookies belonging to its own origin. HttpOnly and other websites' cookies remain inaccessible.</div>
         </article>
+
+        <article class="panel">
+          <div class="panel-title"><span class="icon">▦</span><div><h3>Browser storage audit</h3><p>Other persistence mechanisms available to this origin</p></div></div>
+          <dl id="storageList"></dl>
+        </article>
+
+        <article class="panel">
+          <div class="panel-title"><span class="icon">⊘</span><div><h3>Tracker/ad-block test</h3><p>Optional controlled requests to known tracker domains</p></div></div>
+          <div id="trackerTestBox" class="compare-box"><strong>Not run</strong><p>This test makes credential-free requests to a small set of known tracking endpoints. Your IP/User-Agent will be visible to those endpoints.</p></div>
+          <button class="secondary full" id="trackerTestButton">Run tracker-block test</button>
+        </article>
+
+        <article class="panel">
+          <div class="panel-title"><span class="icon">↔</span><div><h3>Cross-site & DNS tests</h3><p>Capabilities that need separate probe infrastructure</p></div></div>
+          <dl id="probeList"></dl>
+          <div class="note">TraceCheck includes the probe hooks and deployment source, but a true third-party-cookie or DNS-resolver leak test needs a second registrable domain/authoritative DNS endpoint. We do not fabricate these results.</div>
+        </article>
+
+        <article class="panel deep-panel">
+          <div class="panel-title"><span class="icon">◆</span><div><h3>Deep Cookie Scan</h3><p>Optional Chrome extension with explicit cookie permission</p></div></div>
+          <div id="deepScanBox" class="compare-box"><strong>Extension not queried</strong><p>With the optional extension, TraceCheck can enumerate cookie metadata across sites, hide values, group by domain, and cross-reference tracker ownership/categories.</p></div>
+          <button class="primary full" id="deepScanButton">Run Deep Cookie Scan</button>
+          <div id="deepCookieResults" class="deep-cookie-results"></div>
+        </article>
+
         <article class="panel">
           <div class="panel-title"><span class="icon">↔</span><div><h3>Compare</h3><p>This browser vs your previous local scan</p></div></div>
           <div class="compare-box" id="compareBox"><strong>No earlier scan found</strong><p>Your fingerprint hash is stored only in this browser so your next scan can be compared locally.</p></div>
@@ -84,21 +126,21 @@
         <div id="recommendationList" class="recommendation-list"></div>
       </article>
 
-      <div class="truth-box"><strong>What this result does not mean</strong><p>TraceCheck cannot determine whether your device has malware, whether an account has been compromised, or whether a specific fraud system distrusts you. The scores describe observable browser/network signals, not overall computer security.</p></div>
+      <div class="truth-box"><strong>What this result does not mean</strong><p>TraceCheck cannot see arbitrary browsing history, passwords, other sites' localStorage, or a tracker company's server-side profile. The scores describe observable signals and tests, not overall computer security.</p></div>
     </section>
 
     <section class="privacy-section" id="privacySection">
       <div class="eyebrow">PRIVACY BY DESIGN</div>
       <h2>We fingerprint you to explain fingerprinting — not to track you.</h2>
       <div class="privacy-grid">
-        <div><span>01</span><h3>Local calculation</h3><p>Canvas, WebGL and browser attributes are combined and hashed in your browser.</p></div>
-        <div><span>02</span><h3>No fingerprint account</h3><p>The MVP has no database, login, analytics identifier or server-side fingerprint history.</p></div>
-        <div><span>03</span><h3>Minimal network endpoint</h3><p>The API returns a small allow-list of connection metadata already visible to the site.</p></div>
+        <div><span>01</span><h3>Local by default</h3><p>Canvas, WebGL, audio, fonts, client hints and storage tests are calculated in your browser.</p></div>
+        <div><span>02</span><h3>No hidden profile</h3><p>The core scan has no account or server-side fingerprint history. Previous-scan comparison is stored locally.</p></div>
+        <div><span>03</span><h3>Explicit external tests</h3><p>IP intelligence and tracker-request tests only run after you click their buttons and explain what leaves the browser.</p></div>
       </div>
     </section>
   </main>
 
-  <footer><span>TraceCheck MVP</span><span>Privacy diagnostic, not a security guarantee.</span></footer>
+  <footer><span>TraceCheck V2</span><span>Privacy diagnostic, not a security guarantee.</span></footer>
   <script src="/app.js" defer></script>
 </body>
 </html>

@@ -8,11 +8,15 @@ Because the user grants the `cookies` permission plus `<all_urls>` host access, 
 ## What it sends to the TraceCheck page
 Only: cookie name, domain, path, Secure, HttpOnly, SameSite, session/expiry, store/partition metadata, and byte size. Cookie **values are removed in the extension service worker** and never reach page JavaScript.
 
+## Two-step consent
+Deep Scan cannot be silently triggered by the webpage. Open the extension popup and choose **Authorize one Deep Scan**. That authorization expires after 60 seconds and is consumed by the next scan request.
+
 ## Install locally
 1. Open `chrome://extensions`.
 2. Enable Developer mode.
 3. Choose **Load unpacked** and select this `extension` folder.
 4. Reload `https://tracecheck-eus.pages.dev/`.
-5. Run a normal scan, then click **Run Deep Cookie Scan**.
+5. Open the TraceCheck extension and choose **Authorize one Deep Scan**.
+6. Return to TraceCheck and click **Run Deep Cookie Scan**.
 
-This is intentionally not auto-triggered. The user must both install the extension and click the Deep Scan button.
+This is intentionally not auto-triggered. The user must install the extension, explicitly authorize one scan in the extension UI, and then request the scan on the TraceCheck page.

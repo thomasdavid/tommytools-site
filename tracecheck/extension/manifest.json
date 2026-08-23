@@ -1,9 +1,9 @@
 {
   "manifest_version": 3,
   "name": "TraceCheck Deep Scan",
-  "version": "0.2.0",
-  "description": "Opt-in local cookie metadata scan for TraceCheck. Cookie values are never sent to the page.",
-  "permissions": ["cookies", "storage"],
+  "version": "0.3.0",
+  "description": "Opt-in local cookie metadata and browser privacy-settings scan for TraceCheck. Cookie values are never sent to the page.",
+  "permissions": ["cookies", "storage", "privacy"],
   "host_permissions": ["<all_urls>"],
   "background": { "service_worker": "service-worker.js" },
   "content_scripts": [

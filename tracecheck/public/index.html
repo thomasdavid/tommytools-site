@@ -8,6 +8,7 @@
   <link rel="stylesheet" href="/styles.css" />
   <link rel="stylesheet" href="/tooltips.css" />
   <link rel="stylesheet" href="/v2.css" />
+  <link rel="stylesheet" href="/cookie-values.css" />
 </head>
 <body>
   <div class="bg-grid" aria-hidden="true"></div>
@@ -87,7 +88,7 @@
           <div class="panel-title"><span class="icon">◌</span><div><h3>Cookies & storage</h3><p>What this site can actually store and read</p></div></div>
           <dl id="cookieList"></dl>
           <div id="originCookieList" class="cookie-list"></div>
-          <div class="note">A normal website can only list JavaScript-visible cookies belonging to its own origin. HttpOnly and other websites' cookies remain inaccessible.</div>
+          <div class="note">TraceCheck shows the exact value of every cookie that this page can read. HttpOnly cookies and cookies belonging to other websites remain inaccessible to ordinary page JavaScript.</div>
         </article>
 
         <article class="panel">
@@ -143,6 +144,7 @@
   <footer><span>TraceCheck V2</span><span>Privacy diagnostic, not a security guarantee.</span></footer>
   <script src="/app.js" defer></script>
   <script src="/safe-overrides.js" defer></script>
+  <script src="/cookie-values.js" defer></script>
   <script src="/deep-scan-fix.js" defer></script>
 </body>
 </html>

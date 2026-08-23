@@ -5,6 +5,8 @@
   oldButton.replaceWith(button);
   ui.deepScanButton = button;
 
+  const settingText = (value) => value === true ? 'Allowed / enabled' : value === false ? 'Blocked / disabled' : 'Unavailable';
+
   async function runDeepScanV2() {
     button.disabled = true;
     button.textContent = 'Querying extension…';
@@ -25,6 +27,7 @@
     }
 
     const cookies = Array.isArray(reply.cookies) ? reply.cookies : [];
+    const privacySettings = reply.privacySettings || {};
     const grouped = groupCookies(cookies);
     ui.deepScanBox.innerHTML = `<strong>${cookies.length} cookie records across ${grouped.length} domains</strong><p>Cookie values were removed inside the extension. Only the first 40 domain names are sent to TraceCheck’s same-origin lookup endpoint for Tracker Radar classification.</p>`;
 
@@ -34,8 +37,27 @@
       const sameSite = String(cookie.sameSite).toLowerCase();
       return sameSite === 'no_restriction' || sameSite === 'none';
     }).length;
+    const partitioned = cookies.filter((cookie) => cookie.partitioned).length;
+    const httpOnly = cookies.filter((cookie) => cookie.httpOnly).length;
 
-    ui.deepCookieResults.innerHTML = `<div class="deep-summary"><div><strong>${cookies.length}</strong><span>Cookies</span></div><div><strong>${grouped.length}</strong><span>Domains</span></div><div><strong>${trackerGroups.length}</strong><span>Tracker matches in top 40</span></div><div><strong>${thirdPartyCapable}</strong><span>SameSite=None</span></div></div>` +
+    ui.deepCookieResults.innerHTML = `
+      <div class="deep-summary">
+        <div><strong>${cookies.length}</strong><span>Cookies</span></div>
+        <div><strong>${grouped.length}</strong><span>Domains</span></div>
+        <div><strong>${trackerGroups.length}</strong><span>Tracker matches in top 40</span></div>
+        <div><strong>${thirdPartyCapable}</strong><span>SameSite=None</span></div>
+      </div>
+      <div class="tracker-domain">
+        <div class="tracker-head"><div><h4>Chrome privacy settings</h4><p>Read directly through Chrome's privacy extension API</p></div></div>
+        <div class="tracker-cookies">
+          <span class="chip ${privacySettings.thirdPartyCookiesAllowed === false ? 'good' : 'warn'}">Third-party cookies: ${escapeHtml(settingText(privacySettings.thirdPartyCookiesAllowed))}</span>
+          <span class="chip">Topics: ${escapeHtml(settingText(privacySettings.topicsEnabled))}</span>
+          <span class="chip">Related Website Sets: ${escapeHtml(settingText(privacySettings.relatedWebsiteSetsEnabled))}</span>
+          <span class="chip">Partitioned cookies: ${partitioned}</span>
+          <span class="chip">HttpOnly cookies: ${httpOnly}</span>
+        </div>
+        <div class="tracker-details">Chrome notes that individual sites may still have exceptions or Storage Access API access even when the global third-party-cookie setting is blocked, so this is a browser preference rather than a guarantee for every site.</div>
+      </div>` +
       grouped.slice(0, 60).map(([domain, list], index) => {
         const match = intel[domain];
         const checked = index < 40;
@@ -47,7 +69,7 @@
             ? 'No Tracker Radar match found for this exact/parent domain.'
             : 'Not cross-referenced because this pass is capped at the 40 most cookie-heavy domains.';
 
-        return `<div class="tracker-domain"><div class="tracker-head"><div><h4>${escapeHtml(domain)}</h4><p>${escapeHtml(owner)} · ${escapeHtml(categories)}</p></div><span class="tracker-count">${list.length} cookie${list.length === 1 ? '' : 's'}</span></div><div class="tracker-details">${detail}</div><div class="tracker-cookies">${list.slice(0, 12).map((cookie) => `<span class="chip ${cookie.httpOnly ? 'good' : ''}">${escapeHtml(cookie.name)} · ${cookie.size} B · ${escapeHtml(cookie.sameSite || 'SameSite unspecified')}${cookie.httpOnly ? ' · HttpOnly' : ''}${cookie.secure ? ' · Secure' : ''}${cookie.session ? ' · Session' : ' · Persistent'}</span>`).join('')}${list.length > 12 ? `<span class="chip">+${list.length - 12} more</span>` : ''}</div></div>`;
+        return `<div class="tracker-domain"><div class="tracker-head"><div><h4>${escapeHtml(domain)}</h4><p>${escapeHtml(owner)} · ${escapeHtml(categories)}</p></div><span class="tracker-count">${list.length} cookie${list.length === 1 ? '' : 's'}</span></div><div class="tracker-details">${detail}</div><div class="tracker-cookies">${list.slice(0, 12).map((cookie) => `<span class="chip ${cookie.httpOnly ? 'good' : ''}">${escapeHtml(cookie.name)} · ${cookie.size} B · ${escapeHtml(cookie.sameSite || 'SameSite unspecified')}${cookie.httpOnly ? ' · HttpOnly' : ''}${cookie.secure ? ' · Secure' : ''}${cookie.partitioned ? ' · Partitioned' : ''}${cookie.session ? ' · Session' : ' · Persistent'}</span>`).join('')}${list.length > 12 ? `<span class="chip">+${list.length - 12} more</span>` : ''}</div></div>`;
       }).join('');
 
     button.disabled = false;

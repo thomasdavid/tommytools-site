@@ -6,25 +6,36 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return;
   }
 
-  chrome.cookies.getAll({}, (cookies) => {
-    if (chrome.runtime.lastError) {
-      sendResponse({ ok: false, error: chrome.runtime.lastError.message });
+  chrome.storage.session.get('deepScanAuthorizedAt', (state) => {
+    const authorizedAt = Number(state?.deepScanAuthorizedAt || 0);
+    const fresh = Date.now() - authorizedAt < 60000;
+    if (!fresh) {
+      sendResponse({ ok: false, error: 'Open the TraceCheck Deep Scan extension and authorize one scan first.' });
       return;
     }
-    const safe = cookies.map((cookie) => ({
-      name: cookie.name,
-      domain: cookie.domain,
-      path: cookie.path,
-      secure: cookie.secure,
-      httpOnly: cookie.httpOnly,
-      sameSite: cookie.sameSite,
-      session: cookie.session,
-      expirationDate: cookie.expirationDate || null,
-      storeId: cookie.storeId,
-      partitioned: Boolean(cookie.partitionKey),
-      size: new Blob([`${cookie.name}=${cookie.value}`]).size
-    }));
-    sendResponse({ ok: true, cookies: safe });
+
+    chrome.storage.session.remove('deepScanAuthorizedAt', () => {
+      chrome.cookies.getAll({}, (cookies) => {
+        if (chrome.runtime.lastError) {
+          sendResponse({ ok: false, error: chrome.runtime.lastError.message });
+          return;
+        }
+        const safe = cookies.map((cookie) => ({
+          name: cookie.name,
+          domain: cookie.domain,
+          path: cookie.path,
+          secure: cookie.secure,
+          httpOnly: cookie.httpOnly,
+          sameSite: cookie.sameSite,
+          session: cookie.session,
+          expirationDate: cookie.expirationDate || null,
+          storeId: cookie.storeId,
+          partitioned: Boolean(cookie.partitionKey),
+          size: new Blob([`${cookie.name}=${cookie.value}`]).size
+        }));
+        sendResponse({ ok: true, cookies: safe });
+      });
+    });
   });
   return true;
 });

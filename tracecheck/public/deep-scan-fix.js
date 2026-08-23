@@ -1,80 +1,107 @@
+// Cookie-ID demonstration layer. The old Deep Scan UI is intentionally hidden in the current product flow.
 (() => {
-  const oldButton = document.getElementById('deepScanButton');
-  if (!oldButton) return;
-  const button = oldButton.cloneNode(true);
-  oldButton.replaceWith(button);
-  ui.deepScanButton = button;
+  const CONSENT_NAME = 'tracecheck_consent';
+  const DEMO_ID_NAME = 'tracecheck_demo_id';
+  const COOKIE_DAYS = 180;
 
-  const settingText = (value) => value === true ? 'Allowed / enabled' : value === false ? 'Blocked / disabled' : 'Unavailable';
-
-  async function runDeepScanV2() {
-    button.disabled = true;
-    button.textContent = 'Querying extension…';
-    const reply = await requestDeepScan();
-
-    if (!reply) {
-      ui.deepScanBox.innerHTML = '<strong>TraceCheck Deep Scan extension not detected</strong><p>The website cannot read other sites’ cookies itself. Install the unpacked extension from the repository, then reload this page.</p>';
-      button.disabled = false;
-      button.textContent = 'Run Deep Cookie Scan';
-      return;
-    }
-
-    if (!reply.ok) {
-      ui.deepScanBox.innerHTML = `<strong>Deep Scan authorization required</strong><p>${escapeHtml(reply.error || 'Open the TraceCheck extension, choose Authorize one Deep Scan, then try again within 60 seconds.')}</p>`;
-      button.disabled = false;
-      button.textContent = 'Run Deep Cookie Scan';
-      return;
-    }
-
-    const cookies = Array.isArray(reply.cookies) ? reply.cookies : [];
-    const privacySettings = reply.privacySettings || {};
-    const grouped = groupCookies(cookies);
-    ui.deepScanBox.innerHTML = `<strong>${cookies.length} cookie records across ${grouped.length} domains</strong><p>Cookie values were removed inside the extension. Only the first 40 domain names are sent to TraceCheck’s same-origin lookup endpoint for Tracker Radar classification.</p>`;
-
-    const intel = await classifyDomains(grouped.map(([domain]) => domain));
-    const trackerGroups = grouped.slice(0, 40).filter(([domain]) => intel[domain]?.matched);
-    const thirdPartyCapable = cookies.filter((cookie) => {
-      const sameSite = String(cookie.sameSite).toLowerCase();
-      return sameSite === 'no_restriction' || sameSite === 'none';
-    }).length;
-    const partitioned = cookies.filter((cookie) => cookie.partitioned).length;
-    const httpOnly = cookies.filter((cookie) => cookie.httpOnly).length;
-
-    ui.deepCookieResults.innerHTML = `
-      <div class="deep-summary">
-        <div><strong>${cookies.length}</strong><span>Cookies</span></div>
-        <div><strong>${grouped.length}</strong><span>Domains</span></div>
-        <div><strong>${trackerGroups.length}</strong><span>Tracker matches in top 40</span></div>
-        <div><strong>${thirdPartyCapable}</strong><span>SameSite=None</span></div>
-      </div>
-      <div class="tracker-domain">
-        <div class="tracker-head"><div><h4>Chrome privacy settings</h4><p>Read directly through Chrome's privacy extension API</p></div></div>
-        <div class="tracker-cookies">
-          <span class="chip ${privacySettings.thirdPartyCookiesAllowed === false ? 'good' : 'warn'}">Third-party cookies: ${escapeHtml(settingText(privacySettings.thirdPartyCookiesAllowed))}</span>
-          <span class="chip">Topics: ${escapeHtml(settingText(privacySettings.topicsEnabled))}</span>
-          <span class="chip">Related Website Sets: ${escapeHtml(settingText(privacySettings.relatedWebsiteSetsEnabled))}</span>
-          <span class="chip">Partitioned cookies: ${partitioned}</span>
-          <span class="chip">HttpOnly cookies: ${httpOnly}</span>
-        </div>
-        <div class="tracker-details">Chrome notes that individual sites may still have exceptions or Storage Access API access even when the global third-party-cookie setting is blocked, so this is a browser preference rather than a guarantee for every site.</div>
-      </div>` +
-      grouped.slice(0, 60).map(([domain, list], index) => {
-        const match = intel[domain];
-        const checked = index < 40;
-        const categories = match?.categories?.join(', ') || (checked ? 'Not classified' : 'Not queried this pass');
-        const owner = match?.owner || (checked ? 'Unknown owner' : '—');
-        const detail = match?.matched
-          ? `Tracker Radar match. Observed prevalence: ${escapeHtml(match.prevalence ?? 'unknown')}; fingerprinting score: ${escapeHtml(match.fingerprinting ?? 'unknown')}.`
-          : checked
-            ? 'No Tracker Radar match found for this exact/parent domain.'
-            : 'Not cross-referenced because this pass is capped at the 40 most cookie-heavy domains.';
-
-        return `<div class="tracker-domain"><div class="tracker-head"><div><h4>${escapeHtml(domain)}</h4><p>${escapeHtml(owner)} · ${escapeHtml(categories)}</p></div><span class="tracker-count">${list.length} cookie${list.length === 1 ? '' : 's'}</span></div><div class="tracker-details">${detail}</div><div class="tracker-cookies">${list.slice(0, 12).map((cookie) => `<span class="chip ${cookie.httpOnly ? 'good' : ''}">${escapeHtml(cookie.name)} · ${cookie.size} B · ${escapeHtml(cookie.sameSite || 'SameSite unspecified')}${cookie.httpOnly ? ' · HttpOnly' : ''}${cookie.secure ? ' · Secure' : ''}${cookie.partitioned ? ' · Partitioned' : ''}${cookie.session ? ' · Session' : ' · Persistent'}</span>`).join('')}${list.length > 12 ? `<span class="chip">+${list.length - 12} more</span>` : ''}</div></div>`;
-      }).join('');
-
-    button.disabled = false;
-    button.textContent = 'Run Deep Cookie Scan';
+  function readCookie(name) {
+    const part = document.cookie.split(';').map((x) => x.trim()).find((x) => x.startsWith(`${name}=`));
+    return part ? decodeURIComponent(part.slice(name.length + 1)) : '';
   }
 
-  button.addEventListener('click', runDeepScanV2);
+  function writeCookie(name, value) {
+    document.cookie = `${name}=${encodeURIComponent(value)}; Path=/; Max-Age=${COOKIE_DAYS * 86400}; SameSite=Lax; Secure`;
+  }
+
+  function deleteCookie(name) {
+    document.cookie = `${name}=; Path=/; Max-Age=0; SameSite=Lax; Secure`;
+  }
+
+  function ensureDemoVisitorId() {
+    if (readCookie(CONSENT_NAME) !== 'full') {
+      deleteCookie(DEMO_ID_NAME);
+      return '';
+    }
+    let id = readCookie(DEMO_ID_NAME);
+    if (!id) {
+      id = `TC-${crypto.randomUUID()}`;
+      writeCookie(DEMO_ID_NAME, id);
+    }
+    return id;
+  }
+
+  // Full diagnostics gets a persistent demonstration identifier. Essential-only mode does not.
+  ensureDemoVisitorId();
+
+  // Consent buttons are created dynamically by safe-overrides.js. Update the demo ID after that handler runs.
+  document.addEventListener('click', (event) => {
+    const target = event.target instanceof Element ? event.target.closest('button') : null;
+    if (!target) return;
+    if (target.id === 'consentFull') {
+      setTimeout(() => {
+        ensureDemoVisitorId();
+        if (window.__tracecheckLast?.browser) {
+          const cookies = cookieDiagnostics();
+          window.__tracecheckLast.browser.cookies = cookies;
+          renderOriginCookies(cookies);
+        }
+      }, 0);
+    }
+    if (target.id === 'consentEssential') {
+      setTimeout(() => {
+        deleteCookie(DEMO_ID_NAME);
+        if (window.__tracecheckLast?.browser) {
+          const cookies = cookieDiagnostics();
+          window.__tracecheckLast.browser.cookies = cookies;
+          renderOriginCookies(cookies);
+        }
+      }, 0);
+    }
+  }, true);
+
+  // Include values internally so TraceCheck can display only its own known-safe demonstration values.
+  parseVisibleCookies = function () {
+    const raw = document.cookie.trim();
+    if (!raw) return [];
+    return raw.split(';').map((part) => {
+      const i = part.indexOf('=');
+      const name = (i >= 0 ? part.slice(0, i) : part).trim();
+      const rawValue = i >= 0 ? part.slice(i + 1) : '';
+      let value = rawValue;
+      try { value = decodeURIComponent(rawValue); } catch {}
+      return {
+        name,
+        value,
+        size: new Blob([`${name}=${rawValue}`]).size
+      };
+    }).filter((cookie) => cookie.name && !cookie.name.startsWith('__tracecheck_cookie_test'));
+  };
+
+  renderOriginCookies = function (cookies) {
+    if (!cookies.visible.length) {
+      ui.originCookieList.innerHTML = '<div class="cookie-empty">No JavaScript-visible TraceCheck cookies are currently stored.</div>';
+      return;
+    }
+
+    ui.originCookieList.innerHTML = '<div class="note">Visible cookies on this origin</div>' + cookies.visible.map((cookie) => {
+      const isConsent = cookie.name === CONSENT_NAME;
+      const isDemoId = cookie.name === DEMO_ID_NAME;
+      const canShow = isConsent || isDemoId;
+      const valueLabel = isDemoId ? 'Demo visitor ID' : isConsent ? 'Consent value' : 'Cookie value';
+      const valueHtml = canShow
+        ? `<div class="cookie-value"><span>${escapeHtml(valueLabel)}</span><code>${escapeHtml(cookie.value)}</code></div>`
+        : '<div class="cookie-meta"><span class="chip">Value hidden</span></div>';
+      const chips = [
+        '<span class="chip">First-party</span>',
+        '<span class="chip">JS-readable</span>',
+        isDemoId ? '<span class="chip warn">Persistent identifier demo</span>' : ''
+      ].filter(Boolean).join('');
+
+      return `<div class="cookie-item">
+        <div class="cookie-item-top"><strong>${escapeHtml(cookie.name)}</strong><span>${cookie.size} bytes</span></div>
+        ${valueHtml}
+        <div class="cookie-meta">${chips}</div>
+      </div>`;
+    }).join('') + '<div class="note">The TraceCheck demo visitor ID shows how a site can recognise the same browser on a later visit. It is sent back to this TraceCheck origin like a normal first-party cookie, but TraceCheck does not build or retain a server-side browsing profile against it.</div>';
+  };
 })();

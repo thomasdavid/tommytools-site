@@ -8,8 +8,51 @@ const ui = {
   identMeter: $('identMeter'), privacyMeter: $('privacyMeter'), networkMeter: $('networkMeter'),
   identText: $('identText'), privacyText: $('privacyText'), networkText: $('networkText'),
   headline: $('headline'), summary: $('summary'), networkList: $('networkList'), fingerprintList: $('fingerprintList'),
-  privacyList: $('privacyList'), fingerprintHash: $('fingerprintHash'), compareBox: $('compareBox'),
+  privacyList: $('privacyList'), cookieList: $('cookieList'), fingerprintHash: $('fingerprintHash'), compareBox: $('compareBox'),
   clearHistoryButton: $('clearHistoryButton'), recommendationList: $('recommendationList')
+};
+
+const metricHelp = {
+  'Identifiability': 'An exposure estimate based on stable browser attributes this page can observe. It is not a claim that your browser is unique among all users.',
+  'Privacy protection': 'A score based on browser-visible privacy controls such as Global Privacy Control, Do Not Track, cookies and local storage availability.',
+  'Network consistency': 'Checks whether browser-reported signals such as timezone and language broadly agree with metadata seen at the Cloudflare edge.',
+  'Public IP': 'The public Internet Protocol address seen by this website. Sites commonly use it for routing, approximate location, abuse prevention and account-risk checks.',
+  'Country': 'Country inferred by Cloudflare from the public IP address. It is approximate and can differ when using VPNs, proxies or mobile networks.',
+  'Region / city': 'Approximate IP-based location supplied by Cloudflare. It is not GPS location and may be inaccurate.',
+  'IP-derived timezone': 'Timezone associated with the public IP according to Cloudflare. A mismatch with the browser timezone can occur when travelling or using a VPN.',
+  'Network / ASN': 'The Autonomous System Number and organisation announcing your IP address. This usually identifies your ISP, mobile carrier, VPN provider or hosting network.',
+  'Cloudflare edge': 'The Cloudflare data-centre location that handled this request. This describes the route to TraceCheck, not your physical location.',
+  'TLS': 'The TLS protocol version used to encrypt the HTTPS connection between your browser and TraceCheck.',
+  'TLS cipher': 'The cryptographic cipher suite negotiated for this HTTPS connection. It can contribute to a network/client fingerprint.',
+  'HTTP': 'The HTTP protocol version used for the request, such as HTTP/2 or HTTP/3.',
+  'IP reputation': 'Whether reputation services associate the public IP with spam, abuse, automation or other suspicious activity. TraceCheck does not query a provider yet.',
+  'VPN / proxy': 'Whether the connection appears to originate from a VPN, proxy, Tor exit or hosting network. A specialist classification source is required for a reliable result.',
+  'Browser / UA': 'The browser User-Agent string. It can reveal browser family/version, operating system and device class, although modern browsers increasingly reduce its detail.',
+  'Platform': 'The operating-system or platform label exposed by the browser.',
+  'Timezone': 'The timezone reported by the browser through JavaScript. It is a useful consistency and fingerprinting signal.',
+  'Languages': 'The preferred browser languages exposed to websites. The combination and order can help distinguish users.',
+  'Screen': 'The screen resolution and device pixel ratio exposed to the page. These values can contribute to fingerprinting.',
+  'CPU cores': 'The logical processor count exposed through navigator.hardwareConcurrency. Browsers may reduce or cap this value.',
+  'Device memory': 'Approximate device RAM exposed by supported browsers. It is intentionally coarse rather than an exact memory measurement.',
+  'Touch points': 'The maximum number of simultaneous touch contacts the browser reports, helping sites infer device capabilities.',
+  'Automation flag': 'navigator.webdriver tells websites when the browser exposes that it is being controlled by automation such as WebDriver.',
+  'WebGL renderer': 'Graphics renderer information exposed through WebGL. GPU/driver details can be a relatively stable fingerprinting signal.',
+  'Canvas signal': 'A hash of an image rendered locally in a canvas. Small differences in graphics, fonts and rendering can produce a repeatable browser signal.',
+  'Global Privacy Control': 'GPC is a browser signal expressing a preference not to have personal data sold or shared where participating laws and sites recognise it.',
+  'Do Not Track': 'An older browser preference asking sites not to track the user. Sites are not generally required to honour it.',
+  'Cookies': 'navigator.cookieEnabled reports whether the browser says cookies are enabled. The active first-party test below is a stronger practical check.',
+  'Local storage': 'Web Storage lets a site persist key/value data in the browser for its own origin. It can be used for preferences, sessions or tracking.',
+  'Camera access': 'Whether this origin can use camera APIs. TraceCheck deliberately blocks camera access through its own Permissions-Policy.',
+  'Microphone access': 'Whether this origin can use microphone APIs. TraceCheck deliberately blocks microphone access through its own Permissions-Policy.',
+  'Location access': 'Whether this origin can request geolocation. TraceCheck deliberately blocks geolocation through its own Permissions-Policy.',
+  'Third-party cookies': 'Cookies belonging to a different site embedded in the current page. A reliable test requires a second cross-site origin, so a single-origin page cannot truthfully infer the setting.',
+  'Browser cookie flag': 'The browser-level navigator.cookieEnabled value. It is useful but does not guarantee every kind of cookie will be accepted.',
+  'First-party cookie test': 'TraceCheck briefly creates a same-site Secure, SameSite=Lax test cookie, reads it back, then deletes it. This verifies practical first-party cookie access.',
+  'JS-visible cookies': 'The number of cookies for this TraceCheck origin readable through document.cookie. Cookie values are never displayed.',
+  'Cookie Store API': 'Whether this browser exposes the newer asynchronous Cookie Store API. It is an alternative to synchronous document.cookie access.',
+  'Secure context': 'Whether the page is running in a browser secure context, normally HTTPS. Some modern browser APIs require this.',
+  'HttpOnly visibility': 'HttpOnly cookies are intentionally hidden from page JavaScript, which helps protect sensitive session cookies from script access.',
+  'Cross-site cookie test': 'A definitive third-party-cookie test requires another origin embedded or called cross-site. TraceCheck does not perform that external test yet.'
 };
 
 function escapeHtml(value) {
@@ -18,8 +61,20 @@ function escapeHtml(value) {
   }[c]));
 }
 
-function row(label, value, className = '') {
-  return `<div><dt>${escapeHtml(label)}</dt><dd class="${className}">${escapeHtml(value)}</dd></div>`;
+function metricLabel(label, help = metricHelp[label]) {
+  if (!help) return escapeHtml(label);
+  return `<span class="metric-name">${escapeHtml(label)}</span><button class="metric-help" type="button" aria-label="About ${escapeHtml(label)}"><span aria-hidden="true">?</span><span class="metric-tooltip" role="tooltip">${escapeHtml(help)}</span></button>`;
+}
+
+function row(label, value, className = '', help = metricHelp[label]) {
+  return `<div><dt>${metricLabel(label, help)}</dt><dd class="${className}">${escapeHtml(value)}</dd></div>`;
+}
+
+function decorateScoreLabels() {
+  document.querySelectorAll('.score-label').forEach((el) => {
+    const label = el.textContent.trim();
+    if (metricHelp[label]) el.innerHTML = metricLabel(label);
+  });
 }
 
 async function sha256(input) {
@@ -77,6 +132,33 @@ function storageSupport() {
   }
 }
 
+function cookieDiagnostics() {
+  const navFlag = navigator.cookieEnabled === true;
+  const testName = '__tracecheck_cookie_test';
+  let writeRead = false;
+  let visibleCount = 0;
+
+  try {
+    document.cookie = `${testName}=1; Path=/; Max-Age=60; SameSite=Lax; Secure`;
+    writeRead = document.cookie.split(';').some((part) => part.trim().startsWith(`${testName}=`));
+    document.cookie = `${testName}=; Path=/; Max-Age=0; SameSite=Lax; Secure`;
+    const visible = document.cookie.trim();
+    visibleCount = visible ? visible.split(';').filter(Boolean).length : 0;
+  } catch {
+    writeRead = false;
+  }
+
+  return {
+    browserFlag: navFlag,
+    firstPartyWriteRead: writeRead,
+    jsVisibleCount: visibleCount,
+    cookieStore: 'cookieStore' in window,
+    secureContext: window.isSecureContext === true,
+    httpOnlyVisibility: 'Hidden from JavaScript by design',
+    crossSiteTest: 'Requires a second origin'
+  };
+}
+
 function featurePolicyStatus(feature) {
   try {
     const policy = document.permissionsPolicy || document.featurePolicy;
@@ -91,6 +173,7 @@ async function collectBrowser() {
   const nav = navigator;
   const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || 'Unavailable';
   const screenInfo = `${screen.width}×${screen.height} @ ${window.devicePixelRatio || 1}x`;
+  const cookies = cookieDiagnostics();
 
   const fingerprint = {
     userAgent: nav.userAgent,
@@ -114,7 +197,7 @@ async function collectBrowser() {
     localStorage: storageSupport(),
     doNotTrack: nav.doNotTrack === '1',
     globalPrivacyControl: nav.globalPrivacyControl === true,
-    thirdPartyCookies: 'Not tested in MVP',
+    thirdPartyCookies: 'Cross-site test required',
     cameraPermission: featurePolicyStatus('camera'),
     microphonePermission: featurePolicyStatus('microphone'),
     locationPermission: featurePolicyStatus('geolocation')
@@ -122,7 +205,7 @@ async function collectBrowser() {
 
   const canonical = JSON.stringify(fingerprint, Object.keys(fingerprint).sort());
   const hash = await sha256(canonical);
-  return { fingerprint, privacy, hash };
+  return { fingerprint, privacy, cookies, hash };
 }
 
 async function collectNetwork() {
@@ -153,11 +236,11 @@ function identifiabilityScore(fp) {
   return Math.min(100, score);
 }
 
-function privacyProtectionScore(p) {
+function privacyProtectionScore(p, cookies) {
   let score = 30;
   if (p.globalPrivacyControl) score += 30;
   if (p.doNotTrack) score += 10;
-  if (!p.cookiesEnabled) score += 12;
+  if (!cookies.firstPartyWriteRead) score += 12;
   if (!p.localStorage) score += 8;
   return Math.min(100, score);
 }
@@ -200,10 +283,10 @@ function setScore(el, meter, value) {
 }
 
 function render(data) {
-  const { fingerprint: fp, privacy: p, hash } = data.browser;
+  const { fingerprint: fp, privacy: p, cookies, hash } = data.browser;
   const n = data.network;
   const ident = identifiabilityScore(fp);
-  const privacy = privacyProtectionScore(p);
+  const privacy = privacyProtectionScore(p, cookies);
   const consistency = networkConsistencyScore(n, fp);
 
   setScore(ui.identScore, ui.identMeter, ident);
@@ -264,6 +347,18 @@ function render(data) {
     row('Third-party cookies', p.thirdPartyCookies, 'status-muted')
   ].join('');
 
+  if (ui.cookieList) {
+    ui.cookieList.innerHTML = [
+      row('Browser cookie flag', cookies.browserFlag ? 'Enabled' : 'Disabled', cookies.browserFlag ? 'status-warn' : 'status-good'),
+      row('First-party cookie test', cookies.firstPartyWriteRead ? 'Write + read allowed' : 'Blocked', cookies.firstPartyWriteRead ? 'status-warn' : 'status-good'),
+      row('JS-visible cookies', `${cookies.jsVisibleCount} on this origin`),
+      row('Cookie Store API', cookies.cookieStore ? 'Available' : 'Not exposed'),
+      row('Secure context', cookies.secureContext ? 'Yes — HTTPS' : 'No'),
+      row('HttpOnly visibility', cookies.httpOnlyVisibility, 'status-muted'),
+      row('Cross-site cookie test', cookies.crossSiteTest, 'status-muted')
+    ].join('');
+  }
+
   const previous = loadPrevious();
   if (!previous) {
     ui.compareBox.innerHTML = '<strong>No earlier scan found</strong><p>Your fingerprint hash is stored only in this browser so your next scan can be compared locally.</p>';
@@ -279,6 +374,7 @@ function render(data) {
   if (ident >= 70) recs.push(['Avoid random fingerprint tweaks', 'Changing one or two unusual values can make a browser more distinctive. Prefer coherent anti-fingerprinting protections.']);
   if (n.available && n.networkTimezone && fp.timezone && n.networkTimezone !== fp.timezone) recs.push(['Review the timezone mismatch', `Your IP maps to ${n.networkTimezone}, while the browser reports ${fp.timezone}. Travel, VPNs or manual timezone settings can cause this.`]);
   if (fp.webdriver) recs.push(['Browser automation is visible', 'This browser exposes navigator.webdriver=true, a signal anti-bot systems can observe.']);
+  if (!cookies.firstPartyWriteRead) recs.push(['First-party cookies are blocked', 'Some logins and site preferences may fail when even same-site cookies cannot be written and read.']);
   if (!n.available) recs.push(['Retry the network test', 'The Cloudflare edge endpoint did not respond, so network consistency could not be assessed.']);
   recs.push(['Compare another setup', 'Try the same device in private mode, another browser, or on mobile data and compare the local fingerprint result.']);
 
@@ -303,7 +399,7 @@ async function runScan() {
   ui.scanShell.scrollIntoView({ behavior: 'smooth', block: 'center' });
   ui.progressBar.style.width = '8%';
   ui.scanTitle.textContent = 'Scanning your browser…';
-  ui.scanStatus.textContent = 'Reading browser-exposed attributes locally.';
+  ui.scanStatus.textContent = 'Reading browser-exposed attributes and testing first-party storage locally.';
   await wait(250);
 
   ui.progressBar.style.width = '30%';
@@ -322,7 +418,7 @@ async function runScan() {
 
   ui.progressBar.style.width = '100%';
   ui.scanTitle.textContent = 'Scan complete';
-  ui.scanStatus.textContent = 'No browser fingerprint was uploaded.';
+  ui.scanStatus.textContent = 'No browser fingerprint or cookie values were uploaded.';
   await wait(350);
 
   ui.scanShell.classList.add('hidden');
@@ -330,6 +426,7 @@ async function runScan() {
   ui.results.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
+decorateScoreLabels();
 ui.scanButton.addEventListener('click', runScan);
 ui.rescanButton.addEventListener('click', runScan);
 ui.privacyButton.addEventListener('click', () => document.getElementById('privacySection').scrollIntoView({ behavior: 'smooth' }));

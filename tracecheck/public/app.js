@@ -1,436 +1,105 @@
 const $ = (id) => document.getElementById(id);
 const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
-const ui = {
-  scanButton: $('scanButton'), privacyButton: $('privacyButton'), scanShell: $('scanShell'), results: $('results'),
-  scanTitle: $('scanTitle'), scanStatus: $('scanStatus'), progressBar: $('progressBar'), rescanButton: $('rescanButton'),
-  identScore: $('identScore'), privacyScore: $('privacyScore'), networkScore: $('networkScore'),
-  identMeter: $('identMeter'), privacyMeter: $('privacyMeter'), networkMeter: $('networkMeter'),
-  identText: $('identText'), privacyText: $('privacyText'), networkText: $('networkText'),
-  headline: $('headline'), summary: $('summary'), networkList: $('networkList'), fingerprintList: $('fingerprintList'),
-  privacyList: $('privacyList'), cookieList: $('cookieList'), fingerprintHash: $('fingerprintHash'), compareBox: $('compareBox'),
-  clearHistoryButton: $('clearHistoryButton'), recommendationList: $('recommendationList')
-};
+const ui = Object.fromEntries([
+  'scanButton','privacyButton','scanShell','results','scanTitle','scanStatus','progressBar','rescanButton',
+  'identScore','privacyScore','networkScore','identMeter','privacyMeter','networkMeter','identText','privacyText','networkText',
+  'headline','summary','networkList','fingerprintList','advancedList','webrtcList','privacyList','cookieList','originCookieList','storageList',
+  'probeList','fingerprintHash','compareBox','clearHistoryButton','recommendationList','ipIntelButton','ipIntelNote','trackerTestButton',
+  'trackerTestBox','deepScanButton','deepScanBox','deepCookieResults'
+].map((id)=>[id,$(id)]));
 
 const metricHelp = {
-  'Identifiability': 'An exposure estimate based on stable browser attributes this page can observe. It is not a claim that your browser is unique among all users.',
-  'Privacy protection': 'A score based on browser-visible privacy controls such as Global Privacy Control, Do Not Track, cookies and local storage availability.',
-  'Network consistency': 'Checks whether browser-reported signals such as timezone and language broadly agree with metadata seen at the Cloudflare edge.',
-  'Public IP': 'The public Internet Protocol address seen by this website. Sites commonly use it for routing, approximate location, abuse prevention and account-risk checks.',
-  'Country': 'Country inferred by Cloudflare from the public IP address. It is approximate and can differ when using VPNs, proxies or mobile networks.',
-  'Region / city': 'Approximate IP-based location supplied by Cloudflare. It is not GPS location and may be inaccurate.',
-  'IP-derived timezone': 'Timezone associated with the public IP according to Cloudflare. A mismatch with the browser timezone can occur when travelling or using a VPN.',
-  'Network / ASN': 'The Autonomous System Number and organisation announcing your IP address. This usually identifies your ISP, mobile carrier, VPN provider or hosting network.',
-  'Cloudflare edge': 'The Cloudflare data-centre location that handled this request. This describes the route to TraceCheck, not your physical location.',
-  'TLS': 'The TLS protocol version used to encrypt the HTTPS connection between your browser and TraceCheck.',
-  'TLS cipher': 'The cryptographic cipher suite negotiated for this HTTPS connection. It can contribute to a network/client fingerprint.',
-  'HTTP': 'The HTTP protocol version used for the request, such as HTTP/2 or HTTP/3.',
-  'IP reputation': 'Whether reputation services associate the public IP with spam, abuse, automation or other suspicious activity. TraceCheck does not query a provider yet.',
-  'VPN / proxy': 'Whether the connection appears to originate from a VPN, proxy, Tor exit or hosting network. A specialist classification source is required for a reliable result.',
-  'Browser / UA': 'The browser User-Agent string. It can reveal browser family/version, operating system and device class, although modern browsers increasingly reduce its detail.',
-  'Platform': 'The operating-system or platform label exposed by the browser.',
-  'Timezone': 'The timezone reported by the browser through JavaScript. It is a useful consistency and fingerprinting signal.',
-  'Languages': 'The preferred browser languages exposed to websites. The combination and order can help distinguish users.',
-  'Screen': 'The screen resolution and device pixel ratio exposed to the page. These values can contribute to fingerprinting.',
-  'CPU cores': 'The logical processor count exposed through navigator.hardwareConcurrency. Browsers may reduce or cap this value.',
-  'Device memory': 'Approximate device RAM exposed by supported browsers. It is intentionally coarse rather than an exact memory measurement.',
-  'Touch points': 'The maximum number of simultaneous touch contacts the browser reports, helping sites infer device capabilities.',
-  'Automation flag': 'navigator.webdriver tells websites when the browser exposes that it is being controlled by automation such as WebDriver.',
-  'WebGL renderer': 'Graphics renderer information exposed through WebGL. GPU/driver details can be a relatively stable fingerprinting signal.',
-  'Canvas signal': 'A hash of an image rendered locally in a canvas. Small differences in graphics, fonts and rendering can produce a repeatable browser signal.',
-  'Global Privacy Control': 'GPC is a browser signal expressing a preference not to have personal data sold or shared where participating laws and sites recognise it.',
-  'Do Not Track': 'An older browser preference asking sites not to track the user. Sites are not generally required to honour it.',
-  'Cookies': 'navigator.cookieEnabled reports whether the browser says cookies are enabled. The active first-party test below is a stronger practical check.',
-  'Local storage': 'Web Storage lets a site persist key/value data in the browser for its own origin. It can be used for preferences, sessions or tracking.',
-  'Camera access': 'Whether this origin can use camera APIs. TraceCheck deliberately blocks camera access through its own Permissions-Policy.',
-  'Microphone access': 'Whether this origin can use microphone APIs. TraceCheck deliberately blocks microphone access through its own Permissions-Policy.',
-  'Location access': 'Whether this origin can request geolocation. TraceCheck deliberately blocks geolocation through its own Permissions-Policy.',
-  'Third-party cookies': 'Cookies belonging to a different site embedded in the current page. A reliable test requires a second cross-site origin, so a single-origin page cannot truthfully infer the setting.',
-  'Browser cookie flag': 'The browser-level navigator.cookieEnabled value. It is useful but does not guarantee every kind of cookie will be accepted.',
-  'First-party cookie test': 'TraceCheck briefly creates a same-site Secure, SameSite=Lax test cookie, reads it back, then deletes it. This verifies practical first-party cookie access.',
-  'JS-visible cookies': 'The number of cookies for this TraceCheck origin readable through document.cookie. Cookie values are never displayed.',
-  'Cookie Store API': 'Whether this browser exposes the newer asynchronous Cookie Store API. It is an alternative to synchronous document.cookie access.',
-  'Secure context': 'Whether the page is running in a browser secure context, normally HTTPS. Some modern browser APIs require this.',
-  'HttpOnly visibility': 'HttpOnly cookies are intentionally hidden from page JavaScript, which helps protect sensitive session cookies from script access.',
-  'Cross-site cookie test': 'A definitive third-party-cookie test requires another origin embedded or called cross-site. TraceCheck does not perform that external test yet.'
+  'Identifiability':'Exposure estimate based on stable browser attributes available to ordinary page JavaScript. It is not a population uniqueness statistic.',
+  'Privacy protection':'A score based on browser-visible privacy controls and whether common persistence mechanisms are available.',
+  'Network consistency':'Checks whether browser-reported timezone/language broadly agree with metadata observed at the network edge.',
+  'Public IP':'The public Internet Protocol address seen by this website.', 'Country':'Country inferred from the public IP.',
+  'Region / city':'Approximate IP geolocation, not GPS.', 'IP-derived timezone':'Timezone associated with the public IP.',
+  'Network / ASN':'Autonomous System Number and network organisation announcing the IP.', 'Cloudflare edge':'Cloudflare data centre that handled the request.',
+  'TLS':'TLS protocol version used for HTTPS.', 'TLS cipher':'Cipher suite negotiated for this HTTPS connection.', 'HTTP':'HTTP protocol version.',
+  'IP reputation':'External classification of abuse/hosting/VPN/proxy/Tor signals. It is a probabilistic signal, not proof of wrongdoing.',
+  'VPN / proxy':'Whether an external IP intelligence source classifies the address as VPN/proxy/Tor/hosting.',
+  'Browser / UA':'Browser User-Agent string.', 'Platform':'Operating-system/platform label exposed by the browser.', 'Timezone':'Timezone reported by JavaScript.',
+  'Languages':'Ordered browser language preferences.', 'Screen':'Screen resolution and device-pixel ratio.', 'CPU cores':'Logical processor count exposed to websites.',
+  'Device memory':'Coarse RAM estimate exposed by supported browsers.', 'Touch points':'Maximum simultaneous touch points reported.',
+  'Automation flag':'navigator.webdriver signal used by automated-browser tooling and anti-bot systems.', 'WebGL renderer':'Graphics renderer/GPU information exposed through WebGL.',
+  'Canvas signal':'Hash of a locally rendered canvas image.', 'Audio signal':'Hash produced from deterministic OfflineAudioContext rendering.',
+  'Detected fonts':'Count of fonts from TraceCheck’s controlled test list that appear locally available.', 'Client hints':'High-entropy browser/OS/device values returned by User-Agent Client Hints where supported.',
+  'Architecture':'CPU architecture returned by high-entropy Client Hints.', 'OS version':'Platform version returned by Client Hints.', 'Browser full version':'Full browser version returned by Client Hints.',
+  'WebRTC candidates':'ICE candidates exposed to JavaScript during a local WebRTC negotiation.', 'Host candidates':'Local/interface candidates; modern browsers may hide addresses behind mDNS.',
+  'Reflexive candidates':'Server-reflexive candidates learned via STUN; these can reveal a public/NAT address.', 'Relay candidates':'TURN relay candidates, if any.',
+  'Global Privacy Control':'Browser signal expressing an opt-out preference for sale/sharing where recognised.', 'Do Not Track':'Older browser preference requesting not to be tracked.',
+  'Cookies':'Whether the browser says cookies are enabled.', 'Local storage':'Whether localStorage is writable for this origin.',
+  'Camera access':'TraceCheck deliberately blocks camera access with Permissions-Policy.', 'Microphone access':'TraceCheck deliberately blocks microphone access with Permissions-Policy.',
+  'Location access':'TraceCheck deliberately blocks geolocation with Permissions-Policy.', 'Third-party cookies':'True cross-site cookie behaviour requires a second registrable-domain probe.',
+  'Browser cookie flag':'navigator.cookieEnabled value.', 'First-party cookie test':'TraceCheck creates, reads, then immediately deletes a temporary first-party cookie.',
+  'JS-visible cookies':'Cookies on this TraceCheck origin readable via document.cookie; HttpOnly cookies are excluded.', 'Cookie Store API':'Whether the asynchronous Cookie Store API is exposed.',
+  'Secure context':'Whether the page is running in a secure browser context.', 'HttpOnly visibility':'HttpOnly cookies are intentionally unavailable to page JavaScript.',
+  'IndexedDB':'Whether IndexedDB is exposed to this origin.', 'Session storage':'Whether sessionStorage can be used.', 'Cache Storage':'Whether the Cache API is exposed.',
+  'Service workers':'Whether Service Worker APIs are available.', 'Persistent storage':'Whether browser storage has been granted persistence.', 'Storage usage':'Approximate origin storage currently in use.',
+  'Storage quota':'Approximate storage quota available to this origin.', 'Cross-site cookie probe':'Needs a second registrable domain so the browser genuinely treats the probe as third party.',
+  'DNS leak probe':'Needs a controlled authoritative DNS endpoint to observe which recursive resolver asked for a unique hostname.'
 };
 
-function escapeHtml(value) {
-  return String(value ?? 'Unavailable').replace(/[&<>'"]/g, (c) => ({
-    '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;'
-  }[c]));
+function escapeHtml(value){return String(value ?? 'Unavailable').replace(/[&<>'\"]/g,(c)=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','\"':'&quot;'}[c]));}
+function metricLabel(label,help=metricHelp[label]){return help?`<span class="metric-name">${escapeHtml(label)}</span><button class="metric-help" type="button" aria-label="About ${escapeHtml(label)}"><span aria-hidden="true">?</span><span class="metric-tooltip" role="tooltip">${escapeHtml(help)}</span></button>`:escapeHtml(label);}
+function row(label,value,className='',help=metricHelp[label]){return `<div><dt>${metricLabel(label,help)}</dt><dd class="${className}">${escapeHtml(value)}</dd></div>`;}
+function decorateScoreLabels(){document.querySelectorAll('.score-label').forEach((el)=>{const label=el.textContent.trim();if(metricHelp[label])el.innerHTML=metricLabel(label);});}
+async function sha256(input){const digest=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(input));return [...new Uint8Array(digest)].map((b)=>b.toString(16).padStart(2,'0')).join('');}
+
+async function canvasSignal(){try{const c=document.createElement('canvas');c.width=320;c.height=80;const x=c.getContext('2d');x.textBaseline='top';x.font='16px Arial';x.fillStyle='#f60';x.fillRect(8,8,120,30);x.fillStyle='#069';x.fillText('TraceCheck 🔐 123',12,15);x.globalCompositeOperation='multiply';x.fillStyle='rgba(100,190,80,.72)';x.beginPath();x.arc(180,35,25,0,Math.PI*2);x.fill();return (await sha256(c.toDataURL())).slice(0,16);}catch{return 'blocked';}}
+function webglSignal(){try{const c=document.createElement('canvas');const gl=c.getContext('webgl')||c.getContext('experimental-webgl');if(!gl)return{renderer:'Unavailable',vendor:'Unavailable'};const ext=gl.getExtension('WEBGL_debug_renderer_info');return{renderer:ext?gl.getParameter(ext.UNMASKED_RENDERER_WEBGL):gl.getParameter(gl.RENDERER),vendor:ext?gl.getParameter(ext.UNMASKED_VENDOR_WEBGL):gl.getParameter(gl.VENDOR)};}catch{return{renderer:'Blocked',vendor:'Blocked'};}}
+async function audioSignal(){try{const AC=window.OfflineAudioContext||window.webkitOfflineAudioContext;if(!AC)return'Unavailable';const ctx=new AC(1,5000,44100);const osc=ctx.createOscillator();const comp=ctx.createDynamicsCompressor();osc.type='triangle';osc.frequency.value=10000;comp.threshold.value=-50;comp.knee.value=40;comp.ratio.value=12;comp.attack.value=0;comp.release.value=.25;osc.connect(comp);comp.connect(ctx.destination);osc.start(0);const buffer=await ctx.startRendering();const samples=buffer.getChannelData(0).slice(3500,4500);let sum=0;for(const n of samples)sum+=Math.abs(n);return (await sha256(sum.toFixed(12))).slice(0,16);}catch{return'Blocked/Unavailable';}}
+function fontSignal(){const fonts=['Arial','Arial Black','Calibri','Cambria','Candara','Comic Sans MS','Courier New','Georgia','Helvetica','Impact','Palatino','Segoe UI','Tahoma','Times New Roman','Trebuchet MS','Verdana','Roboto','Ubuntu','Noto Sans','Liberation Sans','Menlo','Monaco','Consolas'];if(!document.fonts?.check)return{count:0,names:[],supported:false};const names=fonts.filter((f)=>{try{return document.fonts.check(`16px "${f}"`);}catch{return false;}});return{count:names.length,names,supported:true};}
+async function clientHints(){const ua=navigator.userAgentData;if(!ua?.getHighEntropyValues)return{supported:false};try{const h=await ua.getHighEntropyValues(['architecture','bitness','model','platformVersion','fullVersionList','wow64']);return{supported:true,architecture:h.architecture||'Unavailable',bitness:h.bitness||'Unavailable',model:h.model||'',platformVersion:h.platformVersion||'Unavailable',fullVersion:(h.fullVersionList||[]).map((x)=>`${x.brand} ${x.version}`).join(', '),wow64:String(h.wow64??'Unavailable')};}catch{return{supported:false};}}
+function storageSupport(type){try{const s=type==='session'?sessionStorage:localStorage;const k='__tc_test__';s.setItem(k,'1');s.removeItem(k);return true;}catch{return false;}}
+function parseVisibleCookies(){const raw=document.cookie.trim();if(!raw)return[];return raw.split(';').map((part)=>{const i=part.indexOf('=');const name=(i>=0?part.slice(0,i):part).trim();const value=i>=0?part.slice(i+1):'';return{name,size:new Blob([name+'='+value]).size};}).filter((x)=>x.name&&!x.name.startsWith('__tracecheck_cookie_test'));}
+function cookieDiagnostics(){const test='__tracecheck_cookie_test';let rw=false;try{document.cookie=`${test}=1; Path=/; Max-Age=60; SameSite=Lax; Secure`;rw=document.cookie.split(';').some((p)=>p.trim().startsWith(`${test}=`));document.cookie=`${test}=; Path=/; Max-Age=0; SameSite=Lax; Secure`;}catch{}const visible=parseVisibleCookies();return{browserFlag:navigator.cookieEnabled===true,firstPartyWriteRead:rw,jsVisibleCount:visible.length,visible,cookieStore:'cookieStore'in window,secureContext:window.isSecureContext===true,httpOnlyVisibility:'Hidden from JavaScript by design',crossSiteTest:'External probe not configured'};}
+function featurePolicyStatus(feature){try{const p=document.permissionsPolicy||document.featurePolicy;if(p?.allowsFeature&&p.allowsFeature(feature)===false)return'Blocked by TraceCheck policy';}catch{}return'Not requested';}
+async function storageAudit(){const out={localStorage:storageSupport('local'),sessionStorage:storageSupport('session'),indexedDB:'indexedDB'in window,cacheStorage:'caches'in window,serviceWorker:'serviceWorker'in navigator,persistent:'Unavailable',usage:'Unavailable',quota:'Unavailable'};try{if(navigator.storage?.persisted)out.persistent=(await navigator.storage.persisted())?'Granted':'Not granted';if(navigator.storage?.estimate){const e=await navigator.storage.estimate();if(Number.isFinite(e.usage))out.usage=formatBytes(e.usage);if(Number.isFinite(e.quota))out.quota=formatBytes(e.quota);}}catch{}return out;}
+function formatBytes(n){if(!Number.isFinite(n))return'Unavailable';const u=['B','KB','MB','GB'];let i=0,v=n;while(v>=1024&&i<u.length-1){v/=1024;i++;}return`${v.toFixed(i?1:0)} ${u[i]}`;}
+
+async function webrtcSignal(){if(!window.RTCPeerConnection)return{supported:false,total:0,host:0,srflx:0,relay:0,addresses:[]};const pc=new RTCPeerConnection({iceServers:[{urls:'stun:stun.l.google.com:19302'}]});const candidates=[];try{pc.createDataChannel('tc');pc.onicecandidate=(e)=>{if(e.candidate)candidates.push(e.candidate.candidate);};const offer=await pc.createOffer();await pc.setLocalDescription(offer);await Promise.race([new Promise((resolve)=>{pc.onicegatheringstatechange=()=>{if(pc.iceGatheringState==='complete')resolve();};}),wait(2200)]);}catch{}finally{pc.close();}const parsed=candidates.map((c)=>{const parts=c.split(' ');const typeIndex=parts.indexOf('typ');return{address:parts[4]||'',type:typeIndex>=0?parts[typeIndex+1]:'unknown',protocol:parts[2]||''};});return{supported:true,total:parsed.length,host:parsed.filter((x)=>x.type==='host').length,srflx:parsed.filter((x)=>x.type==='srflx').length,relay:parsed.filter((x)=>x.type==='relay').length,addresses:[...new Set(parsed.map((x)=>x.address).filter(Boolean))].slice(0,6)};}
+
+async function collectBrowser(){const [canvas,audio,hints,storage,webrtc]=await Promise.all([canvasSignal(),audioSignal(),clientHints(),storageAudit(),webrtcSignal()]);const webgl=webglSignal();const fonts=fontSignal();const tz=Intl.DateTimeFormat().resolvedOptions().timeZone||'Unavailable';const fp={userAgent:navigator.userAgent,platform:navigator.userAgentData?.platform||navigator.platform||'Unavailable',languages:(navigator.languages||[navigator.language]).filter(Boolean),timezone:tz,screen:`${screen.width}×${screen.height} @ ${window.devicePixelRatio||1}x`,colorDepth:screen.colorDepth,cpuCores:navigator.hardwareConcurrency??'Unavailable',memoryGB:navigator.deviceMemory??'Unavailable',touchPoints:navigator.maxTouchPoints??0,webdriver:navigator.webdriver===true,pdfViewer:navigator.pdfViewerEnabled??'Unavailable',webglRenderer:webgl.renderer,webglVendor:webgl.vendor,canvasHash:canvas,audioHash:audio,fontCount:fonts.count,fontNames:fonts.names};const privacy={cookiesEnabled:navigator.cookieEnabled,localStorage:storage.localStorage,doNotTrack:navigator.doNotTrack==='1',globalPrivacyControl:navigator.globalPrivacyControl===true,thirdPartyCookies:'External probe required',cameraPermission:featurePolicyStatus('camera'),microphonePermission:featurePolicyStatus('microphone'),locationPermission:featurePolicyStatus('geolocation')};const cookies=cookieDiagnostics();const canonical=JSON.stringify({...fp,hints});const hash=await sha256(canonical);return{fingerprint:fp,privacy,cookies,hints,storage,webrtc,hash};}
+async function collectNetwork(){try{const r=await fetch('/api/network',{cache:'no-store',headers:{Accept:'application/json'}});if(!r.ok)throw new Error();return await r.json();}catch{return{available:false,ip:'Unavailable',country:'Unavailable',region:'',city:'',networkTimezone:'',asn:'',organization:'',colo:'Unavailable',tlsVersion:'Unavailable',tlsCipher:'Unavailable',httpProtocol:'Unavailable',acceptLanguage:''};}}
+
+function identifiabilityScore(fp,h){let s=14;if(fp.canvasHash!=='blocked')s+=14;if(!['Unavailable','Blocked'].includes(fp.webglRenderer))s+=15;if(fp.audioHash&&!fp.audioHash.includes('Unavailable'))s+=12;if(fp.fontCount>0)s+=10;if(fp.screen)s+=8;if(fp.cpuCores!=='Unavailable')s+=6;if(fp.memoryGB!=='Unavailable')s+=5;if(fp.languages?.length)s+=Math.min(6,fp.languages.length*2);if(h.supported)s+=7;if(fp.touchPoints>0)s+=3;return Math.min(100,s);}
+function privacyProtectionScore(p,c,s){let x=28;if(p.globalPrivacyControl)x+=28;if(p.doNotTrack)x+=6;if(!c.firstPartyWriteRead)x+=10;if(!s.localStorage)x+=8;if(!s.indexedDB)x+=8;if(!s.cacheStorage)x+=6;if(s.persistent==='Not granted')x+=3;return Math.min(100,x);}
+function primaryLanguage(v){return String(v||'').split(',')[0].trim().split(';')[0].toLowerCase();}
+function networkConsistencyScore(n,fp){if(!n?.available)return 0;let s=55;if(n.networkTimezone&&fp.timezone){if(n.networkTimezone===fp.timezone)s+=25;else if(n.networkTimezone.split('/')[0]===fp.timezone.split('/')[0])s+=8;else s-=10;}const a=primaryLanguage(n.acceptLanguage),b=primaryLanguage(fp.languages?.[0]);if(a&&b){if(a===b)s+=10;else if(a.split('-')[0]===b.split('-')[0])s+=6;else s-=5;}if(n.tlsVersion&&n.tlsVersion!=='Unavailable')s+=5;if(n.organization)s+=5;return Math.max(0,Math.min(100,s));}
+function scoreLabel(s,inverse=false){if(inverse)return s>=70?'High':s>=45?'Moderate':'Low';return s>=70?'Strong':s>=45?'Moderate':'Limited';}
+function setScore(el,meter,v){el.textContent=v===0?'—':v;meter.style.width=`${v}%`;}
+
+function renderOriginCookies(cookies){if(!cookies.visible.length){ui.originCookieList.innerHTML='<div class="cookie-empty">No JavaScript-visible TraceCheck cookies are currently stored.</div>';return;}ui.originCookieList.innerHTML=`<div class="note">Visible cookies on this origin</div>`+cookies.visible.map((c)=>`<div class="cookie-item"><div class="cookie-item-top"><strong>${escapeHtml(c.name)}</strong><span>${c.size} bytes</span></div><div class="cookie-meta"><span class="chip">Value hidden</span><span class="chip">First-party</span><span class="chip">JS-readable</span></div></div>`).join('');}
+
+function render(data){window.__tracecheckLast=data;const{fingerprint:fp,privacy:p,cookies,hints,storage,webrtc,hash}=data.browser;const n=data.network;const ident=identifiabilityScore(fp,hints),privacy=privacyProtectionScore(p,cookies,storage),consistency=networkConsistencyScore(n,fp);setScore(ui.identScore,ui.identMeter,ident);setScore(ui.privacyScore,ui.privacyMeter,privacy);setScore(ui.networkScore,ui.networkMeter,consistency);ui.identText.textContent=`${scoreLabel(ident,true)} identifiability from exposed browser signals.`;ui.privacyText.textContent=`${scoreLabel(privacy)} visible privacy protection.`;ui.networkText.textContent=n.available?`${scoreLabel(consistency)} agreement between browser and edge signals.`:'Network endpoint unavailable.';ui.headline.textContent=ident>=70?'Your browser exposes a distinctive set of signals.':ident>=45?'Your browser exposes a moderate amount of identifying detail.':'Your browser exposes relatively little identifying detail.';ui.summary.textContent='Exposure estimate only. True uniqueness requires a reference population; external IP/tracker tests are opt-in.';
+  ui.networkList.innerHTML=[row('Public IP',n.ip),row('Country',n.country),row('Region / city',[n.region,n.city].filter(Boolean).join(', ')||'Unavailable'),row('IP-derived timezone',n.networkTimezone||'Unavailable'),row('Network / ASN',n.asn&&n.organization?`AS${n.asn} — ${n.organization}`:n.organization||n.asn||'Unavailable'),row('Cloudflare edge',n.colo),row('TLS',n.tlsVersion),row('TLS cipher',n.tlsCipher),row('HTTP',n.httpProtocol),row('IP reputation','Not run','status-muted'),row('VPN / proxy','Not run','status-muted')].join('');
+  ui.fingerprintList.innerHTML=[row('Browser / UA',fp.userAgent),row('Platform',fp.platform),row('Timezone',fp.timezone),row('Languages',fp.languages.join(', ')),row('Screen',fp.screen),row('CPU cores',fp.cpuCores),row('Device memory',fp.memoryGB==='Unavailable'?'Unavailable':`${fp.memoryGB} GB`),row('Touch points',fp.touchPoints),row('Automation flag',fp.webdriver?'Exposed as automated':'Not exposed'),row('WebGL renderer',fp.webglRenderer),row('Canvas signal',fp.canvasHash)].join('');ui.fingerprintHash.textContent=`${hash.slice(0,16)}…${hash.slice(-12)}`;
+  ui.advancedList.innerHTML=[row('Audio signal',fp.audioHash),row('Detected fonts',`${fp.fontCount} / 23`),row('Client hints',hints.supported?'High-entropy API available':'Not exposed'),row('Architecture',hints.architecture||'Unavailable'),row('OS version',hints.platformVersion||'Unavailable'),row('Browser full version',hints.fullVersion||'Unavailable')].join('');
+  ui.webrtcList.innerHTML=[row('WebRTC candidates',webrtc.supported?webrtc.total:'Unsupported'),row('Host candidates',webrtc.host),row('Reflexive candidates',webrtc.srflx),row('Relay candidates',webrtc.relay),row('Candidate addresses',webrtc.addresses.length?webrtc.addresses.join(', '):'None exposed')].join('');
+  ui.privacyList.innerHTML=[row('Global Privacy Control',p.globalPrivacyControl?'Enabled':'Not detected',p.globalPrivacyControl?'status-good':'status-muted'),row('Do Not Track',p.doNotTrack?'Enabled':'Not detected',p.doNotTrack?'status-good':'status-muted'),row('Cookies',p.cookiesEnabled?'Enabled':'Disabled',p.cookiesEnabled?'status-warn':'status-good'),row('Local storage',p.localStorage?'Available':'Blocked',p.localStorage?'status-warn':'status-good'),row('Camera access',p.cameraPermission),row('Microphone access',p.microphonePermission),row('Location access',p.locationPermission),row('Third-party cookies',p.thirdPartyCookies,'status-muted')].join('');
+  ui.cookieList.innerHTML=[row('Browser cookie flag',cookies.browserFlag?'Enabled':'Disabled',cookies.browserFlag?'status-warn':'status-good'),row('First-party cookie test',cookies.firstPartyWriteRead?'Write + read allowed':'Blocked',cookies.firstPartyWriteRead?'status-warn':'status-good'),row('JS-visible cookies',`${cookies.jsVisibleCount} on this origin`),row('Cookie Store API',cookies.cookieStore?'Available':'Not exposed'),row('Secure context',cookies.secureContext?'Yes — HTTPS':'No'),row('HttpOnly visibility',cookies.httpOnlyVisibility,'status-muted')].join('');renderOriginCookies(cookies);
+  ui.storageList.innerHTML=[row('Local storage',storage.localStorage?'Available':'Blocked'),row('Session storage',storage.sessionStorage?'Available':'Blocked'),row('IndexedDB',storage.indexedDB?'Available':'Not exposed'),row('Cache Storage',storage.cacheStorage?'Available':'Not exposed'),row('Service workers',storage.serviceWorker?'Available':'Not exposed'),row('Persistent storage',storage.persistent),row('Storage usage',storage.usage),row('Storage quota',storage.quota)].join('');
+  ui.probeList.innerHTML=[row('Cross-site cookie probe','Needs second site','status-muted'),row('DNS leak probe','Needs DNS probe domain','status-muted')].join('');
+  const prev=loadPrevious();if(!prev)ui.compareBox.innerHTML='<strong>No earlier scan found</strong><p>Your fingerprint hash is stored only in this browser so the next scan can be compared locally.</p>';else if(prev.hash===hash)ui.compareBox.innerHTML=`<strong class="status-good">Fingerprint matches your previous scan</strong><p>Unchanged since ${escapeHtml(new Date(prev.time).toLocaleString())}.</p>`;else ui.compareBox.innerHTML=`<strong class="status-warn">Fingerprint changed</strong><p>At least one fingerprint input changed since ${escapeHtml(new Date(prev.time).toLocaleString())}.</p>`;savePrevious(hash);
+  const recs=[];if(!p.globalPrivacyControl)recs.push(['Consider Global Privacy Control','A browser or extension supporting GPC can send an opt-out preference to participating sites.']);if(ident>=70)recs.push(['Prefer coherent anti-fingerprinting','Random one-off tweaks can make a browser more unusual rather than less.']);if(n.available&&n.networkTimezone&&fp.timezone&&n.networkTimezone!==fp.timezone)recs.push(['Review timezone mismatch',`IP maps to ${n.networkTimezone}; browser reports ${fp.timezone}. VPNs or travel can cause this.`]);if(fp.webdriver)recs.push(['Automation is visible','navigator.webdriver=true is exposed to sites.']);if(webrtc.srflx>0)recs.push(['WebRTC exposed a reflexive candidate','A STUN-derived address is visible to JavaScript.']);recs.push(['Run the opt-in network tests','IP intelligence and tracker-block tests add useful context without being part of the default scan.']);ui.recommendationList.innerHTML=recs.slice(0,3).map(([a,b])=>`<div class="recommendation"><strong>${escapeHtml(a)}</strong><p>${escapeHtml(b)}</p></div>`).join('');
 }
 
-function metricLabel(label, help = metricHelp[label]) {
-  if (!help) return escapeHtml(label);
-  return `<span class="metric-name">${escapeHtml(label)}</span><button class="metric-help" type="button" aria-label="About ${escapeHtml(label)}"><span aria-hidden="true">?</span><span class="metric-tooltip" role="tooltip">${escapeHtml(help)}</span></button>`;
-}
+function loadPrevious(){try{return JSON.parse(localStorage.getItem('tracecheck:lastScan'));}catch{return null;}}
+function savePrevious(hash){try{localStorage.setItem('tracecheck:lastScan',JSON.stringify({hash,time:Date.now()}));}catch{}}
 
-function row(label, value, className = '', help = metricHelp[label]) {
-  return `<div><dt>${metricLabel(label, help)}</dt><dd class="${className}">${escapeHtml(value)}</dd></div>`;
-}
+async function runIpIntel(){if(!window.__tracecheckLast?.network?.available)return;ui.ipIntelButton.disabled=true;ui.ipIntelButton.textContent='Checking…';try{const r=await fetch('/api/ip-intel',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'});const d=await r.json();if(!r.ok)throw new Error(d.error||'Lookup failed');const risk=[d.is_tor&&'Tor',d.is_vpn&&'VPN',d.is_proxy&&'Proxy',d.is_datacenter&&'Datacenter/hosting',d.is_abuser&&'Recent abuse signal'].filter(Boolean);const n=window.__tracecheckLast.network;n.ipIntel=d;ui.networkList.innerHTML=[row('Public IP',n.ip),row('Country',n.country),row('Region / city',[n.region,n.city].filter(Boolean).join(', ')||'Unavailable'),row('IP-derived timezone',n.networkTimezone||'Unavailable'),row('Network / ASN',n.asn&&n.organization?`AS${n.asn} — ${n.organization}`:n.organization||n.asn||'Unavailable'),row('Cloudflare edge',n.colo),row('TLS',n.tlsVersion),row('TLS cipher',n.tlsCipher),row('HTTP',n.httpProtocol),row('IP reputation',risk.length?risk.join(', '):'No listed risk flags',risk.length?'status-warn':'status-good'),row('VPN / proxy',d.is_vpn||d.is_proxy||d.is_tor?'Detected':'Not detected',d.is_vpn||d.is_proxy||d.is_tor?'status-warn':'status-good')].join('');ui.ipIntelNote.textContent=`ipapi.is classification complete${d.provider?` — network type: ${d.provider}`:''}. These are probabilistic signals and can be wrong.`;}catch(e){ui.ipIntelNote.textContent=`IP intelligence failed: ${e.message}`;}finally{ui.ipIntelButton.disabled=false;ui.ipIntelButton.textContent='Run external IP intelligence';}}
 
-function decorateScoreLabels() {
-  document.querySelectorAll('.score-label').forEach((el) => {
-    const label = el.textContent.trim();
-    if (metricHelp[label]) el.innerHTML = metricLabel(label);
-  });
-}
+const trackerTargets=[['Google Analytics','https://www.google-analytics.com/generate_204'],['Meta','https://connect.facebook.net/en_US/fbevents.js'],['Microsoft Ads','https://bat.bing.com/bat.js'],['TikTok','https://analytics.tiktok.com/i18n/pixel/events.js'],['X / Twitter Ads','https://static.ads-twitter.com/uwt.js']];
+async function probeUrl(url){const controller=new AbortController();const t=setTimeout(()=>controller.abort(),3500);try{await fetch(url,{mode:'no-cors',credentials:'omit',cache:'no-store',signal:controller.signal});return true;}catch{return false;}finally{clearTimeout(t);}}
+async function runTrackerTest(){ui.trackerTestButton.disabled=true;ui.trackerTestButton.textContent='Testing…';const results=[];for(const[name,url]of trackerTargets)results.push([name,await probeUrl(url)]);const blocked=results.filter(([,ok])=>!ok).length;ui.trackerTestBox.innerHTML=`<strong>${blocked} of ${results.length} test endpoints blocked</strong><p>${results.map(([n,ok])=>`${escapeHtml(n)}: ${ok?'reachable':'blocked/unreachable'}`).join(' · ')}</p>`;ui.trackerTestButton.disabled=false;ui.trackerTestButton.textContent='Run tracker-block test';}
 
-async function sha256(input) {
-  const data = new TextEncoder().encode(input);
-  const digest = await crypto.subtle.digest('SHA-256', data);
-  return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, '0')).join('');
-}
+async function classifyDomains(domains){try{const r=await fetch('/api/tracker-lookup',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({domains:domains.slice(0,40)})});if(!r.ok)return{};return(await r.json()).results||{};}catch{return{};}}
+function groupCookies(cookies){const map=new Map();for(const c of cookies){const domain=String(c.domain||'').replace(/^\./,'').toLowerCase();if(!domain)continue;if(!map.has(domain))map.set(domain,[]);map.get(domain).push(c);}return [...map.entries()].sort((a,b)=>b[1].length-a[1].length);}
+function requestDeepScan(){return new Promise((resolve)=>{const token=crypto.randomUUID();const handler=(e)=>{if(e.source!==window||e.data?.source!=='tracecheck-extension'||e.data?.token!==token)return;window.removeEventListener('message',handler);resolve(e.data);};window.addEventListener('message',handler);window.postMessage({source:'tracecheck-page',type:'TRACE_CHECK_DEEP_SCAN',token},'*');setTimeout(()=>{window.removeEventListener('message',handler);resolve(null);},2500);});}
+async function runDeepScan(){ui.deepScanButton.disabled=true;ui.deepScanButton.textContent='Querying extension…';const reply=await requestDeepScan();if(!reply?.ok){ui.deepScanBox.innerHTML='<strong>TraceCheck Deep Scan extension not detected</strong><p>The website cannot read other sites’ cookies itself. Install the unpacked extension from the repository, grant the browser cookie permission, then reload this page.</p>';ui.deepScanButton.disabled=false;ui.deepScanButton.textContent='Run Deep Cookie Scan';return;}const cookies=Array.isArray(reply.cookies)?reply.cookies:[];const grouped=groupCookies(cookies);ui.deepScanBox.innerHTML=`<strong>${cookies.length} cookie records across ${grouped.length} domains</strong><p>Values were removed inside the extension before data reached the page. TraceCheck is now cross-referencing domain ownership and tracker categories.</p>`;const intel=await classifyDomains(grouped.map(([d])=>d));const trackerGroups=grouped.filter(([d])=>intel[d]?.matched);const thirdPartyCapable=cookies.filter((c)=>String(c.sameSite).toLowerCase()==='no_restriction'||String(c.sameSite).toLowerCase()==='none').length;ui.deepCookieResults.innerHTML=`<div class="deep-summary"><div><strong>${cookies.length}</strong><span>Cookies</span></div><div><strong>${grouped.length}</strong><span>Domains</span></div><div><strong>${trackerGroups.length}</strong><span>Known tracker domains</span></div><div><strong>${thirdPartyCapable}</strong><span>SameSite=None</span></div></div>`+grouped.slice(0,60).map(([domain,list])=>{const x=intel[domain];const cats=x?.categories?.join(', ')||'Not classified';const owner=x?.owner||'Unknown owner';return`<div class="tracker-domain"><div class="tracker-head"><div><h4>${escapeHtml(domain)}</h4><p>${escapeHtml(owner)} · ${escapeHtml(cats)}</p></div><span class="tracker-count">${list.length} cookie${list.length===1?'':'s'}</span></div><div class="tracker-details">${x?.matched?`Tracker Radar match. Observed prevalence: ${escapeHtml(x.prevalence??'unknown')}; fingerprinting score: ${escapeHtml(x.fingerprinting??'unknown')}.`:'No Tracker Radar match found for this exact/parent domain.'}</div><div class="tracker-cookies">${list.slice(0,12).map((c)=>`<span class="chip ${c.httpOnly?'good':''}">${escapeHtml(c.name)} · ${c.size} B${c.httpOnly?' · HttpOnly':''}${c.secure?' · Secure':''}</span>`).join('')}${list.length>12?`<span class="chip">+${list.length-12} more</span>`:''}</div></div>`;}).join('');ui.deepScanButton.disabled=false;ui.deepScanButton.textContent='Run Deep Cookie Scan';}
 
-async function canvasSignal() {
-  try {
-    const canvas = document.createElement('canvas');
-    canvas.width = 320;
-    canvas.height = 80;
-    const ctx = canvas.getContext('2d');
-    ctx.textBaseline = 'top';
-    ctx.font = '16px Arial';
-    ctx.fillStyle = '#f60';
-    ctx.fillRect(8, 8, 120, 30);
-    ctx.fillStyle = '#069';
-    ctx.fillText('TraceCheck 🔐 123', 12, 15);
-    ctx.globalCompositeOperation = 'multiply';
-    ctx.fillStyle = 'rgba(100,190,80,.72)';
-    ctx.beginPath();
-    ctx.arc(180, 35, 25, 0, Math.PI * 2);
-    ctx.fill();
-    return (await sha256(canvas.toDataURL())).slice(0, 16);
-  } catch {
-    return 'blocked';
-  }
-}
+async function runScan(){ui.results.classList.add('hidden');ui.scanShell.classList.remove('hidden');ui.scanShell.scrollIntoView({behavior:'smooth',block:'center'});ui.progressBar.style.width='8%';ui.scanTitle.textContent='Scanning your browser…';ui.scanStatus.textContent='Testing browser, storage, fingerprint and WebRTC signals locally.';await wait(180);ui.progressBar.style.width='32%';const browserPromise=collectBrowser();await wait(180);ui.scanStatus.textContent='Checking connection metadata at the Cloudflare edge.';ui.progressBar.style.width='58%';const networkPromise=collectNetwork();const[browser,network]=await Promise.all([browserPromise,networkPromise]);ui.scanStatus.textContent='Calculating exposure and consistency scores.';ui.progressBar.style.width='84%';await wait(220);render({browser,network});ui.progressBar.style.width='100%';ui.scanTitle.textContent='Scan complete';ui.scanStatus.textContent='Core fingerprint data stayed in this browser.';await wait(260);ui.scanShell.classList.add('hidden');ui.results.classList.remove('hidden');ui.results.scrollIntoView({behavior:'smooth',block:'start'});}
 
-function webglSignal() {
-  try {
-    const canvas = document.createElement('canvas');
-    const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
-    if (!gl) return { renderer: 'Unavailable', vendor: 'Unavailable' };
-    const ext = gl.getExtension('WEBGL_debug_renderer_info');
-    return {
-      renderer: ext ? gl.getParameter(ext.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER),
-      vendor: ext ? gl.getParameter(ext.UNMASKED_VENDOR_WEBGL) : gl.getParameter(gl.VENDOR)
-    };
-  } catch {
-    return { renderer: 'Blocked', vendor: 'Blocked' };
-  }
-}
-
-function storageSupport() {
-  try {
-    const key = '__tracecheck_test__';
-    localStorage.setItem(key, '1');
-    localStorage.removeItem(key);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-function cookieDiagnostics() {
-  const navFlag = navigator.cookieEnabled === true;
-  const testName = '__tracecheck_cookie_test';
-  let writeRead = false;
-  let visibleCount = 0;
-
-  try {
-    document.cookie = `${testName}=1; Path=/; Max-Age=60; SameSite=Lax; Secure`;
-    writeRead = document.cookie.split(';').some((part) => part.trim().startsWith(`${testName}=`));
-    document.cookie = `${testName}=; Path=/; Max-Age=0; SameSite=Lax; Secure`;
-    const visible = document.cookie.trim();
-    visibleCount = visible ? visible.split(';').filter(Boolean).length : 0;
-  } catch {
-    writeRead = false;
-  }
-
-  return {
-    browserFlag: navFlag,
-    firstPartyWriteRead: writeRead,
-    jsVisibleCount: visibleCount,
-    cookieStore: 'cookieStore' in window,
-    secureContext: window.isSecureContext === true,
-    httpOnlyVisibility: 'Hidden from JavaScript by design',
-    crossSiteTest: 'Requires a second origin'
-  };
-}
-
-function featurePolicyStatus(feature) {
-  try {
-    const policy = document.permissionsPolicy || document.featurePolicy;
-    if (policy?.allowsFeature && policy.allowsFeature(feature) === false) return 'Blocked by TraceCheck policy';
-  } catch {}
-  return 'Not requested';
-}
-
-async function collectBrowser() {
-  const webgl = webglSignal();
-  const canvas = await canvasSignal();
-  const nav = navigator;
-  const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || 'Unavailable';
-  const screenInfo = `${screen.width}×${screen.height} @ ${window.devicePixelRatio || 1}x`;
-  const cookies = cookieDiagnostics();
-
-  const fingerprint = {
-    userAgent: nav.userAgent,
-    platform: nav.userAgentData?.platform || nav.platform || 'Unavailable',
-    languages: (nav.languages || [nav.language]).filter(Boolean),
-    timezone: tz,
-    screen: screenInfo,
-    colorDepth: screen.colorDepth,
-    cpuCores: nav.hardwareConcurrency ?? 'Unavailable',
-    memoryGB: nav.deviceMemory ?? 'Unavailable',
-    touchPoints: nav.maxTouchPoints ?? 0,
-    webdriver: nav.webdriver === true,
-    pdfViewer: nav.pdfViewerEnabled ?? 'Unavailable',
-    webglRenderer: webgl.renderer,
-    webglVendor: webgl.vendor,
-    canvasHash: canvas
-  };
-
-  const privacy = {
-    cookiesEnabled: nav.cookieEnabled,
-    localStorage: storageSupport(),
-    doNotTrack: nav.doNotTrack === '1',
-    globalPrivacyControl: nav.globalPrivacyControl === true,
-    thirdPartyCookies: 'Cross-site test required',
-    cameraPermission: featurePolicyStatus('camera'),
-    microphonePermission: featurePolicyStatus('microphone'),
-    locationPermission: featurePolicyStatus('geolocation')
-  };
-
-  const canonical = JSON.stringify(fingerprint, Object.keys(fingerprint).sort());
-  const hash = await sha256(canonical);
-  return { fingerprint, privacy, cookies, hash };
-}
-
-async function collectNetwork() {
-  try {
-    const response = await fetch('/api/network', { cache: 'no-store', headers: { Accept: 'application/json' } });
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    return await response.json();
-  } catch {
-    return {
-      available: false, ip: 'Unavailable', country: 'Unavailable', asn: 'Unavailable', organization: 'Unavailable',
-      colo: 'Unavailable', tlsVersion: 'Unavailable', tlsCipher: 'Unavailable', httpProtocol: 'Unavailable',
-      networkTimezone: '', acceptLanguage: ''
-    };
-  }
-}
-
-function identifiabilityScore(fp) {
-  let score = 20;
-  if (fp.canvasHash && fp.canvasHash !== 'blocked') score += 18;
-  if (!['Unavailable', 'Blocked'].includes(fp.webglRenderer)) score += 18;
-  if (fp.screen !== 'Unavailable') score += 10;
-  if (fp.cpuCores !== 'Unavailable') score += 8;
-  if (fp.memoryGB !== 'Unavailable') score += 7;
-  if (fp.languages?.length) score += Math.min(7, fp.languages.length * 2);
-  if (fp.touchPoints > 0) score += 4;
-  if (fp.pdfViewer !== 'Unavailable') score += 3;
-  if (fp.webdriver) score += 5;
-  return Math.min(100, score);
-}
-
-function privacyProtectionScore(p, cookies) {
-  let score = 30;
-  if (p.globalPrivacyControl) score += 30;
-  if (p.doNotTrack) score += 10;
-  if (!cookies.firstPartyWriteRead) score += 12;
-  if (!p.localStorage) score += 8;
-  return Math.min(100, score);
-}
-
-function primaryLanguage(value) {
-  return String(value || '').split(',')[0].trim().split(';')[0].toLowerCase();
-}
-
-function networkConsistencyScore(network, fp) {
-  if (!network?.available) return 0;
-  let score = 55;
-
-  if (network.networkTimezone && fp.timezone) {
-    if (network.networkTimezone === fp.timezone) score += 25;
-    else if (network.networkTimezone.split('/')[0] === fp.timezone.split('/')[0]) score += 8;
-    else score -= 10;
-  }
-
-  const headerLanguage = primaryLanguage(network.acceptLanguage);
-  const browserLanguage = primaryLanguage(fp.languages?.[0]);
-  if (headerLanguage && browserLanguage) {
-    if (headerLanguage === browserLanguage) score += 10;
-    else if (headerLanguage.split('-')[0] === browserLanguage.split('-')[0]) score += 6;
-    else score -= 5;
-  }
-
-  if (network.tlsVersion && network.tlsVersion !== 'Unavailable') score += 5;
-  if (network.organization) score += 5;
-  return Math.max(0, Math.min(100, score));
-}
-
-function scoreLabel(score, inverse = false) {
-  if (inverse) return score >= 70 ? 'High' : score >= 45 ? 'Moderate' : 'Low';
-  return score >= 70 ? 'Strong' : score >= 45 ? 'Moderate' : 'Limited';
-}
-
-function setScore(el, meter, value) {
-  el.textContent = value === 0 ? '—' : value;
-  meter.style.width = `${value}%`;
-}
-
-function render(data) {
-  const { fingerprint: fp, privacy: p, cookies, hash } = data.browser;
-  const n = data.network;
-  const ident = identifiabilityScore(fp);
-  const privacy = privacyProtectionScore(p, cookies);
-  const consistency = networkConsistencyScore(n, fp);
-
-  setScore(ui.identScore, ui.identMeter, ident);
-  setScore(ui.privacyScore, ui.privacyMeter, privacy);
-  setScore(ui.networkScore, ui.networkMeter, consistency);
-
-  ui.identText.textContent = `${scoreLabel(ident, true)} identifiability: this browser exposes several stable attributes.`;
-  ui.privacyText.textContent = `${scoreLabel(privacy)} visible privacy protection based on browser-exposed controls.`;
-  ui.networkText.textContent = n.available
-    ? `${scoreLabel(consistency)} agreement between network-derived and browser-exposed signals.`
-    : 'Network endpoint was unavailable for this scan.';
-
-  ui.headline.textContent = ident >= 70
-    ? 'Your browser exposes a distinctive set of signals.'
-    : ident >= 45
-      ? 'Your browser exposes a moderate amount of identifying detail.'
-      : 'Your browser exposes relatively little identifying detail.';
-
-  ui.summary.textContent = 'This is an exposure estimate, not a population uniqueness claim. True uniqueness requires comparison against a large reference population.';
-
-  ui.networkList.innerHTML = [
-    row('Public IP', n.ip),
-    row('Country', n.country),
-    row('Region / city', [n.region, n.city].filter(Boolean).join(', ') || 'Unavailable'),
-    row('IP-derived timezone', n.networkTimezone || 'Unavailable'),
-    row('Network / ASN', n.asn && n.organization ? `AS${n.asn} — ${n.organization}` : n.organization || n.asn || 'Unavailable'),
-    row('Cloudflare edge', n.colo),
-    row('TLS', n.tlsVersion),
-    row('TLS cipher', n.tlsCipher),
-    row('HTTP', n.httpProtocol),
-    row('IP reputation', 'Not checked', 'status-muted'),
-    row('VPN / proxy', 'Not checked', 'status-muted')
-  ].join('');
-
-  ui.fingerprintList.innerHTML = [
-    row('Browser / UA', fp.userAgent),
-    row('Platform', fp.platform),
-    row('Timezone', fp.timezone),
-    row('Languages', fp.languages.join(', ')),
-    row('Screen', fp.screen),
-    row('CPU cores', fp.cpuCores),
-    row('Device memory', fp.memoryGB === 'Unavailable' ? 'Unavailable' : `${fp.memoryGB} GB`),
-    row('Touch points', fp.touchPoints),
-    row('Automation flag', fp.webdriver ? 'Exposed as automated' : 'Not exposed'),
-    row('WebGL renderer', fp.webglRenderer),
-    row('Canvas signal', fp.canvasHash)
-  ].join('');
-  ui.fingerprintHash.textContent = `${hash.slice(0, 16)}…${hash.slice(-12)}`;
-
-  ui.privacyList.innerHTML = [
-    row('Global Privacy Control', p.globalPrivacyControl ? 'Enabled' : 'Not detected', p.globalPrivacyControl ? 'status-good' : 'status-muted'),
-    row('Do Not Track', p.doNotTrack ? 'Enabled' : 'Not detected', p.doNotTrack ? 'status-good' : 'status-muted'),
-    row('Cookies', p.cookiesEnabled ? 'Enabled' : 'Disabled', p.cookiesEnabled ? 'status-warn' : 'status-good'),
-    row('Local storage', p.localStorage ? 'Available' : 'Blocked', p.localStorage ? 'status-warn' : 'status-good'),
-    row('Camera access', p.cameraPermission),
-    row('Microphone access', p.microphonePermission),
-    row('Location access', p.locationPermission),
-    row('Third-party cookies', p.thirdPartyCookies, 'status-muted')
-  ].join('');
-
-  if (ui.cookieList) {
-    ui.cookieList.innerHTML = [
-      row('Browser cookie flag', cookies.browserFlag ? 'Enabled' : 'Disabled', cookies.browserFlag ? 'status-warn' : 'status-good'),
-      row('First-party cookie test', cookies.firstPartyWriteRead ? 'Write + read allowed' : 'Blocked', cookies.firstPartyWriteRead ? 'status-warn' : 'status-good'),
-      row('JS-visible cookies', `${cookies.jsVisibleCount} on this origin`),
-      row('Cookie Store API', cookies.cookieStore ? 'Available' : 'Not exposed'),
-      row('Secure context', cookies.secureContext ? 'Yes — HTTPS' : 'No'),
-      row('HttpOnly visibility', cookies.httpOnlyVisibility, 'status-muted'),
-      row('Cross-site cookie test', cookies.crossSiteTest, 'status-muted')
-    ].join('');
-  }
-
-  const previous = loadPrevious();
-  if (!previous) {
-    ui.compareBox.innerHTML = '<strong>No earlier scan found</strong><p>Your fingerprint hash is stored only in this browser so your next scan can be compared locally.</p>';
-  } else if (previous.hash === hash) {
-    ui.compareBox.innerHTML = `<strong class="status-good">Fingerprint matches your previous scan</strong><p>The locally calculated fingerprint hash is unchanged since ${escapeHtml(new Date(previous.time).toLocaleString())}. Your public IP may still have changed.</p>`;
-  } else {
-    ui.compareBox.innerHTML = `<strong class="status-warn">Fingerprint changed since your previous scan</strong><p>At least one browser-exposed attribute changed since ${escapeHtml(new Date(previous.time).toLocaleString())}. This can happen after browser, display, hardware or privacy-setting changes.</p>`;
-  }
-  savePrevious(hash);
-
-  const recs = [];
-  if (!p.globalPrivacyControl) recs.push(['Consider Global Privacy Control', 'A browser or extension that supports GPC can communicate an opt-out preference to participating sites.']);
-  if (ident >= 70) recs.push(['Avoid random fingerprint tweaks', 'Changing one or two unusual values can make a browser more distinctive. Prefer coherent anti-fingerprinting protections.']);
-  if (n.available && n.networkTimezone && fp.timezone && n.networkTimezone !== fp.timezone) recs.push(['Review the timezone mismatch', `Your IP maps to ${n.networkTimezone}, while the browser reports ${fp.timezone}. Travel, VPNs or manual timezone settings can cause this.`]);
-  if (fp.webdriver) recs.push(['Browser automation is visible', 'This browser exposes navigator.webdriver=true, a signal anti-bot systems can observe.']);
-  if (!cookies.firstPartyWriteRead) recs.push(['First-party cookies are blocked', 'Some logins and site preferences may fail when even same-site cookies cannot be written and read.']);
-  if (!n.available) recs.push(['Retry the network test', 'The Cloudflare edge endpoint did not respond, so network consistency could not be assessed.']);
-  recs.push(['Compare another setup', 'Try the same device in private mode, another browser, or on mobile data and compare the local fingerprint result.']);
-
-  ui.recommendationList.innerHTML = recs.slice(0, 3).map(([a, b]) =>
-    `<div class="recommendation"><strong>${escapeHtml(a)}</strong><p>${escapeHtml(b)}</p></div>`
-  ).join('');
-}
-
-function loadPrevious() {
-  try { return JSON.parse(localStorage.getItem('tracecheck:lastScan')); }
-  catch { return null; }
-}
-
-function savePrevious(hash) {
-  try { localStorage.setItem('tracecheck:lastScan', JSON.stringify({ hash, time: Date.now() })); }
-  catch {}
-}
-
-async function runScan() {
-  ui.results.classList.add('hidden');
-  ui.scanShell.classList.remove('hidden');
-  ui.scanShell.scrollIntoView({ behavior: 'smooth', block: 'center' });
-  ui.progressBar.style.width = '8%';
-  ui.scanTitle.textContent = 'Scanning your browser…';
-  ui.scanStatus.textContent = 'Reading browser-exposed attributes and testing first-party storage locally.';
-  await wait(250);
-
-  ui.progressBar.style.width = '30%';
-  const browserPromise = collectBrowser();
-  await wait(250);
-
-  ui.scanStatus.textContent = 'Checking network metadata at the Cloudflare edge.';
-  ui.progressBar.style.width = '55%';
-  const networkPromise = collectNetwork();
-  const [browser, network] = await Promise.all([browserPromise, networkPromise]);
-
-  ui.scanStatus.textContent = 'Calculating exposure and consistency scores.';
-  ui.progressBar.style.width = '82%';
-  await wait(300);
-  render({ browser, network });
-
-  ui.progressBar.style.width = '100%';
-  ui.scanTitle.textContent = 'Scan complete';
-  ui.scanStatus.textContent = 'No browser fingerprint or cookie values were uploaded.';
-  await wait(350);
-
-  ui.scanShell.classList.add('hidden');
-  ui.results.classList.remove('hidden');
-  ui.results.scrollIntoView({ behavior: 'smooth', block: 'start' });
-}
-
-decorateScoreLabels();
-ui.scanButton.addEventListener('click', runScan);
-ui.rescanButton.addEventListener('click', runScan);
-ui.privacyButton.addEventListener('click', () => document.getElementById('privacySection').scrollIntoView({ behavior: 'smooth' }));
-ui.clearHistoryButton.addEventListener('click', () => {
-  try { localStorage.removeItem('tracecheck:lastScan'); } catch {}
-  ui.compareBox.innerHTML = '<strong>Local comparison data cleared</strong><p>Your next scan will be treated as the first scan on this browser.</p>';
-});
+decorateScoreLabels();ui.scanButton.addEventListener('click',runScan);ui.rescanButton.addEventListener('click',runScan);ui.privacyButton.addEventListener('click',()=>document.getElementById('privacySection').scrollIntoView({behavior:'smooth'}));ui.clearHistoryButton.addEventListener('click',()=>{try{localStorage.removeItem('tracecheck:lastScan');}catch{}ui.compareBox.innerHTML='<strong>Local comparison data cleared</strong><p>Your next scan will be treated as the first scan.</p>';});ui.ipIntelButton.addEventListener('click',runIpIntel);ui.trackerTestButton.addEventListener('click',runTrackerTest);ui.deepScanButton.addEventListener('click',runDeepScan);

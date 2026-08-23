@@ -40,7 +40,9 @@ The `extension/` directory contains an optional Manifest V3 Chrome/Chromium exte
 
 The extension removes cookie values inside its service worker before returning anything to the TraceCheck page. The page receives only metadata such as name, domain, path, Secure, HttpOnly, SameSite, session/expiry, store/partition state and byte size.
 
-Deep Scan groups cookies by domain and sends only domain names to `/api/tracker-lookup`. That Pages Function cross-references DuckDuckGo Tracker Radar and returns owner/category/prevalence/fingerprinting metadata. It does not attempt to retrieve a tracker company's private server-side user profile.
+Deep Scan uses two-step consent: after installing the extension, the user must open its popup and choose **Authorize one Deep Scan**. That authorization expires after 60 seconds and is consumed by the next scan request. The website cannot silently trigger a browser-wide cookie enumeration.
+
+Deep Scan groups cookies by domain and sends only the 40 most cookie-heavy domain names to `/api/tracker-lookup` in each pass. That Pages Function cross-references DuckDuckGo Tracker Radar and returns owner/category/prevalence/fingerprinting metadata. It does not attempt to retrieve a tracker company's private server-side user profile.
 
 ## Cross-site cookie and DNS probes
 A true third-party-cookie test requires a second registrable domain. A true DNS leak test requires an authoritative DNS zone that can correlate unique test hostnames with the recursive resolver that queried them. Source/scaffolding lives under `probes/`; the live UI reports these as not configured until that infrastructure exists rather than guessing.

@@ -20,6 +20,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           sendResponse({ ok: false, error: chrome.runtime.lastError.message });
           return;
         }
+
         const safe = cookies.map((cookie) => ({
           name: cookie.name,
           domain: cookie.domain,
@@ -33,9 +34,42 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           partitioned: Boolean(cookie.partitionKey),
           size: new Blob([`${cookie.name}=${cookie.value}`]).size
         }));
-        sendResponse({ ok: true, cookies: safe });
+
+        readPrivacySettings((privacySettings) => {
+          sendResponse({ ok: true, cookies: safe, privacySettings });
+        });
       });
     });
   });
   return true;
 });
+
+function readPrivacySettings(done) {
+  const settings = {
+    thirdPartyCookiesAllowed: 'Unavailable',
+    topicsEnabled: 'Unavailable',
+    relatedWebsiteSetsEnabled: 'Unavailable'
+  };
+  const jobs = [];
+
+  jobs.push(readSetting(chrome.privacy?.websites?.thirdPartyCookiesAllowed, 'thirdPartyCookiesAllowed', settings));
+  jobs.push(readSetting(chrome.privacy?.websites?.topicsEnabled, 'topicsEnabled', settings));
+  jobs.push(readSetting(chrome.privacy?.websites?.relatedWebsiteSetsEnabled, 'relatedWebsiteSetsEnabled', settings));
+
+  Promise.all(jobs).then(() => done(settings));
+}
+
+function readSetting(setting, key, target) {
+  return new Promise((resolve) => {
+    if (!setting?.get) {
+      resolve();
+      return;
+    }
+    setting.get({}, (details) => {
+      if (!chrome.runtime.lastError && typeof details?.value === 'boolean') {
+        target[key] = details.value;
+      }
+      resolve();
+    });
+  });
+}

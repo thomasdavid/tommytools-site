@@ -6,6 +6,7 @@
   <meta name="description" content="See what websites can learn about your browser and connection, without creating a tracking profile." />
   <title>TraceCheck — See your digital fingerprint</title>
   <link rel="stylesheet" href="/styles.css" />
+  <link rel="stylesheet" href="/tooltips.css" />
 </head>
 <body>
   <div class="bg-grid" aria-hidden="true"></div>
@@ -26,7 +27,7 @@
       <div class="mini-grid">
         <div><strong>Browser</strong><span>Fingerprint signals</span></div>
         <div><strong>Network</strong><span>IP & edge metadata</span></div>
-        <div><strong>Privacy</strong><span>Protection settings</span></div>
+        <div><strong>Privacy</strong><span>Cookies & protection settings</span></div>
         <div><strong>Compare</strong><span>Against your last scan</span></div>
       </div>
     </section>
@@ -65,6 +66,11 @@
         <article class="panel">
           <div class="panel-title"><span class="icon">◎</span><div><h3>Privacy signals</h3><p>Settings websites can observe</p></div></div>
           <dl id="privacyList"></dl>
+        </article>
+        <article class="panel">
+          <div class="panel-title"><span class="icon">◌</span><div><h3>Cookies & storage</h3><p>What this origin can actually store and read</p></div></div>
+          <dl id="cookieList"></dl>
+          <div class="note">TraceCheck briefly creates one first-party test cookie and deletes it immediately. Cookie values are never displayed or uploaded. HttpOnly cookies are intentionally invisible to page JavaScript.</div>
         </article>
         <article class="panel">
           <div class="panel-title"><span class="icon">↔</span><div><h3>Compare</h3><p>This browser vs your previous local scan</p></div></div>

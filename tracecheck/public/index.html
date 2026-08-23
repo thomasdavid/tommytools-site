@@ -75,7 +75,7 @@
         <article class="panel">
           <div class="panel-title"><span class="icon">⌁</span><div><h3>WebRTC network exposure</h3><p>ICE candidates visible to page JavaScript</p></div></div>
           <dl id="webrtcList"></dl>
-          <div class="note">Modern browsers often replace local addresses with mDNS names. A server-reflexive candidate may still reveal a public address via STUN.</div>
+          <div class="note">The default scan stays local and does not contact a public STUN service. Use the optional STUN check below if you want to test whether a server-reflexive/public candidate is exposed.</div>
         </article>
 
         <article class="panel">
@@ -109,7 +109,7 @@
 
         <article class="panel deep-panel">
           <div class="panel-title"><span class="icon">◆</span><div><h3>Deep Cookie Scan</h3><p>Optional Chrome extension with explicit cookie permission</p></div></div>
-          <div id="deepScanBox" class="compare-box"><strong>Extension not queried</strong><p>With the optional extension, TraceCheck can enumerate cookie metadata across sites, hide values, group by domain, and cross-reference tracker ownership/categories.</p></div>
+          <div id="deepScanBox" class="compare-box"><strong>Extension not queried</strong><p>With the optional extension, TraceCheck can enumerate cookie metadata across sites, hide values, group by domain, read Chrome's third-party-cookie preference, and cross-reference tracker ownership/categories.</p></div>
           <button class="primary full" id="deepScanButton">Run Deep Cookie Scan</button>
           <div id="deepCookieResults" class="deep-cookie-results"></div>
         </article>
@@ -135,13 +135,14 @@
       <div class="privacy-grid">
         <div><span>01</span><h3>Local by default</h3><p>Canvas, WebGL, audio, fonts, client hints and storage tests are calculated in your browser.</p></div>
         <div><span>02</span><h3>No hidden profile</h3><p>The core scan has no account or server-side fingerprint history. Previous-scan comparison is stored locally.</p></div>
-        <div><span>03</span><h3>Explicit external tests</h3><p>IP intelligence and tracker-request tests only run after you click their buttons and explain what leaves the browser.</p></div>
+        <div><span>03</span><h3>Explicit external tests</h3><p>IP intelligence, public-STUN and tracker-request tests only run after you click their buttons and explain what leaves the browser.</p></div>
       </div>
     </section>
   </main>
 
   <footer><span>TraceCheck V2</span><span>Privacy diagnostic, not a security guarantee.</span></footer>
   <script src="/app.js" defer></script>
+  <script src="/safe-overrides.js" defer></script>
   <script src="/deep-scan-fix.js" defer></script>
 </body>
 </html>

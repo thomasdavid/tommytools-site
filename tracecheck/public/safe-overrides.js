@@ -117,15 +117,35 @@ webrtcSignal = function () {
     if (deepPanel) deepPanel.hidden = true;
 
     const hero = document.querySelector('.hero-copy');
-    if (hero) hero.textContent = 'TraceCheck inspects browser, network, storage, fingerprinting and tracking signals. After your consent choice, a full scan can automatically run the disclosed external network checks.';
+    if (hero) hero.textContent = 'TraceCheck inspects browser, network, storage, fingerprinting and tracking signals. After your consent choice, a full scan automatically runs all currently available external diagnostic checks.';
+
+    const privacyExternal = document.querySelector('.privacy-grid > div:nth-child(3) p');
+    if (privacyExternal) privacyExternal.textContent = 'With Full diagnostics consent, IP intelligence, public STUN and disclosed tracker-reachability checks run automatically with each scan.';
+
+    const webrtcPanel = ui.webrtcList?.closest('.panel');
+    const webrtcNote = webrtcPanel?.querySelector('.note');
+    if (webrtcNote) {
+      webrtcNote.textContent = hasFullConsent()
+        ? 'The local ICE test runs first. A public STUN check then runs automatically after the scan to test public/server-reflexive address exposure.'
+        : 'Essential-only mode performs local ICE gathering only and does not contact a public STUN service.';
+    }
+
+    const trackerPanel = ui.trackerTestBox?.closest('.panel');
+    const trackerSubtitle = trackerPanel?.querySelector('.panel-title p');
+    if (trackerSubtitle) trackerSubtitle.textContent = hasFullConsent()
+      ? 'Runs automatically against disclosed endpoints after the local scan'
+      : 'Disabled in Essential-only mode';
 
     if (ui.ipIntelNote) {
       ui.ipIntelNote.textContent = hasFullConsent()
         ? 'Runs automatically after the local scan. Your public IP is sent to ipapi.is for VPN, proxy, Tor, hosting and abuse classification.'
         : 'External IP intelligence is disabled because Essential only is selected.';
     }
-    if (ui.trackerTestBox && !hasFullConsent()) {
-      ui.trackerTestBox.innerHTML = '<strong>Not run — Essential only</strong><p>No requests are made to external tracker test endpoints.</p>';
+
+    if (ui.trackerTestBox) {
+      ui.trackerTestBox.innerHTML = hasFullConsent()
+        ? '<strong>Ready</strong><p>Runs automatically after your local scan.</p>'
+        : '<strong>Not run — Essential only</strong><p>No requests are made to external tracker test endpoints.</p>';
     }
   }
 
@@ -197,9 +217,6 @@ webrtcSignal = function () {
       runAutomaticStun()
     ]).then(() => {
       if (thisRun !== externalRunId) return;
-      if (ui.ipIntelNote && !ui.ipIntelNote.textContent.includes('failed')) {
-        // runIpIntel replaces this with the provider result on success.
-      }
     });
   }
 
@@ -266,6 +283,9 @@ webrtcSignal = function () {
       updateConsentRows();
       await renderDeviceIdentifiers();
       setExternalUiForConsent();
+      if (ui.summary) ui.summary.textContent = hasFullConsent()
+        ? 'Core exposure estimate complete. External IP, STUN and tracker-reachability checks are now running automatically.'
+        : 'Core exposure estimate complete. External diagnostics were not run because Essential only is selected.';
       if (hasFullConsent()) runAllAvailableExternalChecks();
       button.disabled = false;
     });

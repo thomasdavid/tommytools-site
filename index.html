@@ -3,73 +3,16 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="description" content="Tommy Tools — bespoke web apps for data transformation, data visualisation, language learning, sprinting, rugby, games and synthesizers.">
+<meta name="description" content="Tommy Tools — bespoke web apps for data transformation, data visualisation, language learning, sprinting, rugby, games, kids and synthesizers.">
 <link rel="icon" type="image/png" href="/611e7a94-79a0-4794-a9b9-d9aaa719858f.png">
 <link rel="shortcut icon" type="image/png" href="/611e7a94-79a0-4794-a9b9-d9aaa719858f.png">
 <link rel="apple-touch-icon" href="/611e7a94-79a0-4794-a9b9-d9aaa719858f.png">
 <title>Tommy Tools</title>
 <style>
-:root{
-  --ink:#17202a;
-  --muted:#647180;
-  --line:#dbe3e7;
-  --soft:#f3f7f8;
-  --accent:#0e5b76;
-  --white:#fff;
-  --dataviz:#b08a57;
-  --dataviz-soft:#eadfce;
-  --language:#437b68;
-  --language-soft:#dcebe5;
-  --sports:#19324d;
-  --sports-soft:#dbe4ec;
-  --music:#a87988;
-  --music-soft:#eadde2;
-  --games:#b85f25;
-  --games-soft:#f1dfd1;
-}
-*{box-sizing:border-box}
-body{margin:0;background:#f4f7f8;color:var(--ink);font-family:Inter,system-ui,-apple-system,"Segoe UI",sans-serif}
-.shell{width:min(1450px,calc(100% - 48px));margin:auto}
-.topbar{height:72px;background:#fff;border-bottom:1px solid var(--line);display:flex;align-items:center}
-.topbar .shell{display:flex;align-items:center}
-.brand{display:flex;align-items:center;gap:11px;color:var(--ink);text-decoration:none;font-weight:850}
-.mark{display:grid;place-items:center;width:38px;height:38px;border-radius:10px;background:var(--accent);color:#fff;font-size:14px}
-.hero{padding:38px 0 28px;display:grid;grid-template-columns:minmax(0,1.2fr) minmax(360px,.8fr);gap:34px;align-items:center}
-.hero-copy{min-width:0}
-.hero-visual{display:flex;align-items:center;justify-content:center;min-height:264px;overflow:visible}
-.hero-visual img{display:block;width:120%;max-width:120%;max-height:276px;object-fit:contain;opacity:.48;filter:grayscale(100%);mix-blend-mode:multiply}
-.hero h1{margin:0;font-size:clamp(42px,6vw,76px);line-height:.98;letter-spacing:-.055em}
-.hero p{max-width:900px;margin:20px 0 0;color:var(--muted);font-size:18px;line-height:1.65}
-.grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:20px;padding:28px 0 64px}
-.card{--cat:#0e5b76;--cat-soft:#e5f1f4;min-height:340px;padding:26px;background:#fff;border:1px solid var(--line);border-radius:20px;display:flex;flex-direction:column;box-shadow:0 16px 42px rgba(24,43,54,.06);overflow:hidden;position:relative}
-.card.dataviz{--cat:var(--dataviz);--cat-soft:var(--dataviz-soft)}
-.card.language{--cat:var(--language);--cat-soft:var(--language-soft)}
-.card.sports{--cat:var(--sports);--cat-soft:var(--sports-soft)}
-.card.music{--cat:var(--music);--cat-soft:var(--music-soft)}
-.card.games{--cat:var(--games);--cat-soft:var(--games-soft)}
-.card:after{content:"";position:absolute;width:180px;height:180px;border-radius:50%;background:var(--cat-soft);right:-70px;bottom:-75px}
-.card-top,.card-body,.card-footer{position:relative;z-index:1}
-.card-top{display:flex;align-items:center}
-.category{display:inline-flex;align-items:center;min-height:34px;padding:0 12px;border-radius:999px;background:var(--cat-soft);color:var(--cat);font-size:12px;font-weight:850;letter-spacing:.08em;text-transform:uppercase}
-.card-body{margin-top:44px}
-.card h2{margin:0;font-size:27px;letter-spacing:-.025em}
-.card p{margin:13px 0 0;color:var(--muted);line-height:1.65}
-.card-footer{margin-top:auto;padding-top:25px}
-.button{display:inline-flex;align-items:center;justify-content:center;min-height:46px;padding:0 20px;border-radius:11px;background:var(--accent);color:#fff;text-decoration:none;font-weight:800}
-.footer{border-top:1px solid var(--line);background:#fff}
-.footer .shell{min-height:72px;display:flex;align-items:center;justify-content:space-between;color:var(--muted);font-size:13px}
-@media(max-width:1050px){.hero{grid-template-columns:1fr}.hero-visual{order:-1;min-height:180px}.hero-visual img{width:120%;max-width:120%;max-height:204px}.grid{grid-template-columns:repeat(2,1fr)}}
-@media(max-width:680px){.shell{width:min(100% - 24px,1450px)}.hero{padding-top:24px}.hero-visual{display:none}.grid{grid-template-columns:1fr}.card{min-height:310px}.footer .shell{align-items:flex-start;justify-content:center;flex-direction:column;gap:4px}}
-</style>
-</head>
-<body>
-<header class="topbar"><div class="shell"><a class="brand" href="/" aria-label="Tommy Tools home"><span class="mark">TT</span><span>Tommy Tools</span></a></div></header>
-<main class="shell">
-<section class="hero">
-  <div class="hero-copy"><h1>Tools with a purpose.</h1><p>A collection of bespoke web apps reflecting my interests in data transformation, data visualisation, language learning, sprinting, rugby, games and synthesizers.</p></div>
-  <div class="hero-visual"><img src="/611e7a94-79a0-4794-a9b9-d9aaa719858f.png" alt="Tommy Tools illustration"></div>
-</section>
-<section class="grid" aria-label="Available applications">
+:root{--ink:#17202a;--muted:#647180;--line:#dbe3e7;--soft:#f3f7f8;--accent:#0e5b76;--white:#fff;--dataviz:#b08a57;--dataviz-soft:#eadfce;--language:#437b68;--language-soft:#dcebe5;--sports:#19324d;--sports-soft:#dbe4ec;--music:#a87988;--music-soft:#eadde2;--games:#b85f25;--games-soft:#f1dfd1;--kids:#7b5ba7;--kids-soft:#e9e0f3}
+*{box-sizing:border-box}body{margin:0;background:#f4f7f8;color:var(--ink);font-family:Inter,system-ui,-apple-system,"Segoe UI",sans-serif}.shell{width:min(1450px,calc(100% - 48px));margin:auto}.topbar{height:72px;background:#fff;border-bottom:1px solid var(--line);display:flex;align-items:center}.topbar .shell{display:flex;align-items:center}.brand{display:flex;align-items:center;gap:11px;color:var(--ink);text-decoration:none;font-weight:850}.mark{display:grid;place-items:center;width:38px;height:38px;border-radius:10px;background:var(--accent);color:#fff;font-size:14px}.hero{padding:38px 0 28px;display:grid;grid-template-columns:minmax(0,1.2fr) minmax(360px,.8fr);gap:34px;align-items:center}.hero-copy{min-width:0}.hero-visual{display:flex;align-items:center;justify-content:center;min-height:264px;overflow:visible}.hero-visual img{display:block;width:120%;max-width:120%;max-height:276px;object-fit:contain;opacity:.48;filter:grayscale(100%);mix-blend-mode:multiply}.hero h1{margin:0;font-size:clamp(42px,6vw,76px);line-height:.98;letter-spacing:-.055em}.hero p{max-width:900px;margin:20px 0 0;color:var(--muted);font-size:18px;line-height:1.65}.grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:20px;padding:28px 0 64px}.card{--cat:#0e5b76;--cat-soft:#e5f1f4;min-height:340px;padding:26px;background:#fff;border:1px solid var(--line);border-radius:20px;display:flex;flex-direction:column;box-shadow:0 16px 42px rgba(24,43,54,.06);overflow:hidden;position:relative}.card.dataviz{--cat:var(--dataviz);--cat-soft:var(--dataviz-soft)}.card.language{--cat:var(--language);--cat-soft:var(--language-soft)}.card.sports{--cat:var(--sports);--cat-soft:var(--sports-soft)}.card.music{--cat:var(--music);--cat-soft:var(--music-soft)}.card.games{--cat:var(--games);--cat-soft:var(--games-soft)}.card.kids{--cat:var(--kids);--cat-soft:var(--kids-soft)}.card:after{content:"";position:absolute;width:180px;height:180px;border-radius:50%;background:var(--cat-soft);right:-70px;bottom:-75px}.card-top,.card-body,.card-footer{position:relative;z-index:1}.card-top{display:flex;align-items:center}.category{display:inline-flex;align-items:center;min-height:34px;padding:0 12px;border-radius:999px;background:var(--cat-soft);color:var(--cat);font-size:12px;font-weight:850;letter-spacing:.08em;text-transform:uppercase}.card-body{margin-top:44px}.card h2{margin:0;font-size:27px;letter-spacing:-.025em}.card p{margin:13px 0 0;color:var(--muted);line-height:1.65}.card-footer{margin-top:auto;padding-top:25px}.button{display:inline-flex;align-items:center;justify-content:center;min-height:46px;padding:0 20px;border-radius:11px;background:var(--accent);color:#fff;text-decoration:none;font-weight:800}.footer{border-top:1px solid var(--line);background:#fff}.footer .shell{min-height:72px;display:flex;align-items:center;justify-content:space-between;color:var(--muted);font-size:13px}@media(max-width:1050px){.hero{grid-template-columns:1fr}.hero-visual{order:-1;min-height:180px}.hero-visual img{width:120%;max-width:120%;max-height:204px}.grid{grid-template-columns:repeat(2,1fr)}}@media(max-width:680px){.shell{width:min(100% - 24px,1450px)}.hero{padding-top:24px}.hero-visual{display:none}.grid{grid-template-columns:1fr}.card{min-height:310px}.footer .shell{align-items:flex-start;justify-content:center;flex-direction:column;gap:4px}}
+</style></head><body>
+<header class="topbar"><div class="shell"><a class="brand" href="/" aria-label="Tommy Tools home"><span class="mark">TT</span><span>Tommy Tools</span></a></div></header><main class="shell"><section class="hero"><div class="hero-copy"><h1>Tools with a purpose.</h1><p>A collection of bespoke web apps reflecting my interests in data transformation, data visualisation, language learning, sprinting, rugby, games, kids and synthesizers.</p></div><div class="hero-visual"><img src="/611e7a94-79a0-4794-a9b9-d9aaa719858f.png" alt="Tommy Tools illustration"></div></section><section class="grid" aria-label="Available applications">
 <article class="card dataviz"><div class="card-top"><span class="category">Dataviz</span></div><div class="card-body"><h2>AI Chart Editor</h2><p>Upload a chart and its dataset, reconstruct the visual with AI, then refine and export it as editable SVG or PNG.</p></div><div class="card-footer"><a class="button" href="https://chart.tommytools.dev/projects/ai-chart-editor">Open project</a></div></article>
 <article class="card dataviz"><div class="card-top"><span class="category">Data</span></div><div class="card-body"><h2>AI Data ETL</h2><p>Compare a target data model with a source spreadsheet, generate reviewable Python, run a verified conversion and download the resulting CSV.</p></div><div class="card-footer"><a class="button" href="https://chart.tommytools.dev/projects/ai-data-etl">Open project</a></div></article>
 <article class="card dataviz"><div class="card-top"><span class="category">Dataviz</span></div><div class="card-body"><h2>Trust Explorer</h2><p>Compare trust indicators across European countries with an interactive beeswarm chart, country highlighting and year selection.</p></div><div class="card-footer"><a class="button" href="/projects/trust-explorer/">Open project</a></div></article>
@@ -81,9 +24,6 @@ body{margin:0;background:#f4f7f8;color:var(--ink);font-family:Inter,system-ui,-a
 <article class="card sports"><div class="card-top"><span class="category">Sports</span></div><div class="card-body"><h2>Rugby Forward Pass Calculator</h2><p>Explore how running speed, pass direction, distance, spin and wind affect the ball’s path and pass legality.</p></div><div class="card-footer"><a class="button" href="/projects/rugby-forward-pass-calculator/">Open project</a></div></article>
 <article class="card sports"><div class="card-top"><span class="category">Sports</span></div><div class="card-body"><h2>Sprint Speed Model</h2><p>Adjust acceleration, fatigue and top velocity to explore a modelled 100 metre speed curve and predicted finish time.</p></div><div class="card-footer"><a class="button" href="/projects/sprint-speed-model/">Open project</a></div></article>
 <article class="card games"><div class="card-top"><span class="category">Game</span></div><div class="card-body"><h2>Herbert's House Hunt</h2><p>Explore Herbert's modeled apartment, pounce on quick flies, uncover hidden treats and jump onto the real furniture to escape the vacuum.</p></div><div class="card-footer"><a class="button" href="/projects/herbers-house-hunt/">Play game</a></div></article>
+<article class="card kids"><div class="card-top"><span class="category">Kids</span></div><div class="card-body"><h2>Monkey Zone</h2><p>Take a photo and discover your monkey self with a playful AI transformation made for silly family fun.</p></div><div class="card-footer"><a class="button" href="https://monkeyzone.eu/">Open Monkey Zone</a></div></article>
 <article class="card music"><div class="card-top"><span class="category">Music</span></div><div class="card-body"><h2>SH-101 Vibe Synth</h2><p>Play a browser-based monosynth inspired by the Roland SH-101, including oscillators, filter, envelope and sequencer.</p></div><div class="card-footer"><a class="button" href="/projects/sh101-synth/">Open project</a></div></article>
-</section>
-</main>
-<footer class="footer"><div class="shell"><span>© 2026 Tommy Tools</span><span>Developed by Thomas David</span></div></footer>
-</body>
-</html>
+</section></main><footer class="footer"><div class="shell"><span>© 2026 Tommy Tools</span><span>Developed by Thomas David</span></div></footer></body></html>
